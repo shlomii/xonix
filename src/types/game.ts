@@ -1,0 +1,32 @@
+
+export interface Position {
+  x: number;
+  y: number;
+}
+
+export interface Sprite extends Position {
+  vx: number;
+  vy: number;
+}
+
+export interface Enemy extends Sprite {}
+
+export interface GameState {
+  player: Sprite;
+  enemies: Enemy[];
+  trail: Position[];
+  filledCells: Set<string>;
+  score: number;
+  areaFilled: number;
+  isAlive: boolean;
+  keys: Set<string>;
+}
+
+export interface GameConfig {
+  gridSize: number;
+  canvasWidth: number;
+  canvasHeight: number;
+  playerSpeed: number;
+  enemySpeed: number;
+  winThreshold: number;
+}
