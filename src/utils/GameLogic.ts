@@ -10,8 +10,11 @@ export class GameLogic {
   private enemyPhysics: EnemyPhysics;
   private trailManager: TrailManager;
   private collisionDetector: CollisionDetector;
+  private gridSize: number;
+  private initialized: boolean = false;
 
   constructor(gridSize: number, canvasWidth: number, canvasHeight: number) {
+    this.gridSize = gridSize;
     this.playerPhysics = new PlayerPhysics(gridSize, canvasWidth, canvasHeight);
     this.enemyPhysics = new EnemyPhysics(gridSize, canvasWidth, canvasHeight);
     this.trailManager = new TrailManager(gridSize, canvasWidth, canvasHeight);
@@ -20,6 +23,12 @@ export class GameLogic {
 
   updateGame(gameState: GameState): GameState {
     const newState = { ...gameState };
+
+    // Initialize border on first update
+    if (!this.initialized) {
+      this.trailManager.initializeBorder(newState);
+      this.initialized = true;
+    }
 
     // Update player movement with physics
     this.playerPhysics.updatePlayerMovement(newState);

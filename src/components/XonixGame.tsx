@@ -12,7 +12,7 @@ const CANVAS_HEIGHT = 600;
 const XonixGame: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [gameState, setGameState] = useState<GameState>({
-    player: { x: 1, y: 1, vx: 0, vy: 0 },
+    player: { x: 0, y: 0, vx: 0, vy: 0 }, // Start on border (0,0)
     enemies: [
       { x: 400, y: 200, vx: 2, vy: 1.5 },
       { x: 600, y: 300, vx: -1.5, vy: 2 },
@@ -82,7 +82,7 @@ const XonixGame: React.FC = () => {
 
   const resetGame = () => {
     setGameState({
-      player: { x: 1, y: 1, vx: 0, vy: 0 },
+      player: { x: 0, y: 0, vx: 0, vy: 0 }, // Start on border (0,0)
       enemies: [
         { x: 400, y: 200, vx: 2, vy: 1.5 },
         { x: 600, y: 300, vx: -1.5, vy: 2 },

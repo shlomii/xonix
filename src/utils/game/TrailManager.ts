@@ -15,6 +15,24 @@ export class TrailManager {
     this.floodFill = new FloodFill();
   }
 
+  // Initialize the border as filled cells
+  initializeBorder(gameState: GameState) {
+    const gridWidth = Math.floor(this.canvasWidth / this.gridSize);
+    const gridHeight = Math.floor(this.canvasHeight / this.gridSize);
+    
+    // Fill the entire border
+    for (let x = 0; x < gridWidth; x++) {
+      gameState.filledCells.add(`${x},0`); // Top border
+      gameState.filledCells.add(`${x},${gridHeight - 1}`); // Bottom border
+    }
+    for (let y = 0; y < gridHeight; y++) {
+      gameState.filledCells.add(`0,${y}`); // Left border
+      gameState.filledCells.add(`${gridWidth - 1},${y}`); // Right border
+    }
+    
+    console.log('Border initialized with', gameState.filledCells.size, 'cells');
+  }
+
   updateTrail(gameState: GameState) {
     const { player } = gameState;
     const gridX = Math.floor(player.x / this.gridSize);
@@ -68,20 +86,10 @@ export class TrailManager {
 
     console.log('Trail set:', Array.from(trailSet));
 
-    // Create boundary set that includes borders, existing filled cells, and the new trail
+    // Create boundary set that includes existing filled cells and the new trail
     const boundarySet = new Set<string>();
     
-    // Add border cells
-    for (let x = 0; x < gridWidth; x++) {
-      boundarySet.add(`${x},0`); // Top border
-      boundarySet.add(`${x},${gridHeight - 1}`); // Bottom border
-    }
-    for (let y = 0; y < gridHeight; y++) {
-      boundarySet.add(`0,${y}`); // Left border
-      boundarySet.add(`${gridWidth - 1},${y}`); // Right border
-    }
-    
-    // Add existing filled cells to boundary
+    // Add existing filled cells to boundary (this includes the border)
     gameState.filledCells.forEach(cell => boundarySet.add(cell));
     
     // Add trail to boundary (this creates the new enclosed boundary)
