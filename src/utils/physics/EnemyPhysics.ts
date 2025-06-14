@@ -20,21 +20,21 @@ export class EnemyPhysics {
   private readonly DECELERATION_FACTOR = 0.985;
   private readonly FRICTION_FACTOR = 0.995;
   private readonly ACCELERATION_DURATION = 1200; // milliseconds
-  private readonly MIN_SPEED = 0.8;
-  private readonly MAX_SPEED = 5.5;
+  private readonly MIN_SPEED = 1.5;
+  private readonly MAX_SPEED = 4.0;
   private readonly BASE_SPEED_VARIATION = 0.4; // Random speed variation
   private readonly MOMENTUM_DECAY = 0.98;
   private readonly WALL_BOUNCE_ENERGY_LOSS = 0.85;
   private readonly FILLED_BOUNCE_ENERGY_GAIN = 1.15;
   
-  // Bee behavior constants
-  private readonly PLAYER_ATTRACTION_FORCE = 0.15;
-  private readonly WANDER_FORCE = 0.08;
-  private readonly SEPARATION_FORCE = 0.12;
-  private readonly SEEK_RADIUS = 200;
-  private readonly WANDER_RADIUS = 30;
-  private readonly CURVE_SMOOTHING = 0.15;
-  private readonly DIRECTION_CHANGE_RATE = 0.02;
+  // Bee behavior constants - adjusted for smoother movement
+  private readonly PLAYER_ATTRACTION_FORCE = 0.25;
+  private readonly WANDER_FORCE = 0.05;
+  private readonly SEPARATION_FORCE = 0.1;
+  private readonly SEEK_RADIUS = 300;
+  private readonly WANDER_RADIUS = 20;
+  private readonly CURVE_SMOOTHING = 0.08;
+  private readonly DIRECTION_CHANGE_RATE = 0.015;
 
   constructor(gridSize: number, canvasWidth: number, canvasHeight: number) {
     this.gridSize = gridSize;
@@ -54,7 +54,7 @@ export class EnemyPhysics {
           targetX: enemy.x,
           targetY: enemy.y,
           wanderAngle: Math.random() * Math.PI * 2,
-          seekIntensity: 0.5 + Math.random() * 0.5,
+          seekIntensity: 0.8 + Math.random() * 0.2,
           lastPlayerDistance: 0
         });
       }
@@ -97,34 +97,28 @@ export class EnemyPhysics {
   ) {
     const beeState = this.beeState.get(index)!;
     
-    // Calculate forces
-    const playerForce = this.calculatePlayerAttraction(enemy, player, beeState);
-    const wanderForce = this.calculateWanderForce(enemy, beeState);
-    const separationForce = this.calculateSeparationForce(enemy, allEnemies, index);
-    
-    // Combine forces with different weights based on situation
+    // Calculate distance to player
     const distanceToPlayer = Math.sqrt(
       Math.pow(enemy.x - player.x, 2) + Math.pow(enemy.y - player.y, 2)
     );
     
-    // Adjust behavior based on distance to player
-    let playerWeight = beeState.seekIntensity;
-    let wanderWeight = 1.0 - beeState.seekIntensity * 0.7;
-    let separationWeight = 0.8;
+    // Calculate forces
+    const playerForce = this.calculatePlayerAttraction(enemy, player, distanceToPlayer);
+    const wanderForce = this.calculateWanderForce(enemy, beeState);
+    const separationForce = this.calculateSeparationForce(enemy, allEnemies, index);
     
-    // Increase player attraction when close
+    // Weight forces based on distance to player - stronger attraction when closer
+    let playerWeight = 0.7; // Base attraction
+    let wanderWeight = 0.2;
+    let separationWeight = 0.6;
+    
+    // Increase player attraction significantly when within seek radius
     if (distanceToPlayer < this.SEEK_RADIUS) {
-      playerWeight *= 1.5;
-      wanderWeight *= 0.5;
+      playerWeight = 0.9;
+      wanderWeight = 0.1;
     }
     
-    // Apply adaptive behavior - if getting closer to player, increase attraction
-    if (distanceToPlayer < beeState.lastPlayerDistance) {
-      playerWeight *= 1.2;
-    }
-    beeState.lastPlayerDistance = distanceToPlayer;
-    
-    // Apply forces with smooth curves
+    // Apply forces with smooth steering
     const desiredVx = (playerForce.x * playerWeight + wanderForce.x * wanderWeight + separationForce.x * separationWeight);
     const desiredVy = (playerForce.y * playerWeight + wanderForce.y * wanderWeight + separationForce.y * separationWeight);
     
@@ -132,38 +126,39 @@ export class EnemyPhysics {
     enemy.vx += (desiredVx - enemy.vx) * this.CURVE_SMOOTHING;
     enemy.vy += (desiredVy - enemy.vy) * this.CURVE_SMOOTHING;
     
-    // Add organic variations to simulate bee-like buzzing
-    const buzzVariation = Math.sin(Date.now() * 0.01 + index * 2) * 0.3;
-    const buzzVariation2 = Math.cos(Date.now() * 0.007 + index * 1.5) * 0.2;
+    // Add subtle organic variations to simulate bee-like movement
+    const time = Date.now() * 0.003;
+    const buzzVariationX = Math.sin(time + index * 2.1) * 0.15;
+    const buzzVariationY = Math.cos(time * 1.3 + index * 1.7) * 0.15;
     
-    enemy.vx += buzzVariation;
-    enemy.vy += buzzVariation2;
+    enemy.vx += buzzVariationX;
+    enemy.vy += buzzVariationY;
     
     // Update wander angle for next frame
     beeState.wanderAngle += (Math.random() - 0.5) * this.DIRECTION_CHANGE_RATE;
+    beeState.lastPlayerDistance = distanceToPlayer;
   }
 
   private calculatePlayerAttraction(
     enemy: { x: number; y: number }, 
     player: { x: number; y: number },
-    beeState: { seekIntensity: number }
+    distance: number
   ): { x: number; y: number } {
-    const dx = player.x - enemy.x;
-    const dy = player.y - enemy.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    
     if (distance === 0) return { x: 0, y: 0 };
     
-    // Normalize and apply attraction force
+    const dx = player.x - enemy.x;
+    const dy = player.y - enemy.y;
+    
+    // Normalize direction
     const normalizedX = dx / distance;
     const normalizedY = dy / distance;
     
-    // Apply inverse square law for more realistic attraction (but capped)
-    const attractionStrength = Math.min(this.PLAYER_ATTRACTION_FORCE / (distance * 0.01), this.PLAYER_ATTRACTION_FORCE * 3);
+    // Apply stronger attraction force that decreases with distance
+    const attractionStrength = this.PLAYER_ATTRACTION_FORCE * Math.min(1.0, 200 / distance);
     
     return {
-      x: normalizedX * attractionStrength * beeState.seekIntensity,
-      y: normalizedY * attractionStrength * beeState.seekIntensity
+      x: normalizedX * attractionStrength,
+      y: normalizedY * attractionStrength
     };
   }
 
@@ -172,9 +167,13 @@ export class EnemyPhysics {
     beeState: { wanderAngle: number; targetX: number; targetY: number }
   ): { x: number; y: number } {
     // Create a circular wander target ahead of the enemy
-    const wanderDistance = 50;
-    const centerX = enemy.x + enemy.vx * wanderDistance;
-    const centerY = enemy.y + enemy.vy * wanderDistance;
+    const wanderDistance = 40;
+    const speed = Math.sqrt(enemy.vx * enemy.vx + enemy.vy * enemy.vy);
+    const normalizedVx = speed > 0 ? enemy.vx / speed : 1;
+    const normalizedVy = speed > 0 ? enemy.vy / speed : 0;
+    
+    const centerX = enemy.x + normalizedVx * wanderDistance;
+    const centerY = enemy.y + normalizedVy * wanderDistance;
     
     const targetX = centerX + Math.cos(beeState.wanderAngle) * this.WANDER_RADIUS;
     const targetY = centerY + Math.sin(beeState.wanderAngle) * this.WANDER_RADIUS;
@@ -199,7 +198,7 @@ export class EnemyPhysics {
     let separationX = 0;
     let separationY = 0;
     let neighborCount = 0;
-    const separationRadius = 40;
+    const separationRadius = 35;
     
     allEnemies.forEach((otherEnemy, index) => {
       if (index === currentIndex) return;
@@ -209,7 +208,6 @@ export class EnemyPhysics {
       const distance = Math.sqrt(dx * dx + dy * dy);
       
       if (distance > 0 && distance < separationRadius) {
-        // Add separation force (stronger when closer)
         const separationStrength = (separationRadius - distance) / separationRadius;
         separationX += (dx / distance) * separationStrength;
         separationY += (dy / distance) * separationStrength;
@@ -232,7 +230,6 @@ export class EnemyPhysics {
       const timeSinceAcceleration = currentTime - accelerationStartTime;
       
       if (timeSinceAcceleration < this.ACCELERATION_DURATION) {
-        // Still in acceleration phase - apply momentum boost
         const momentum = this.momentumFactors.get(index) || 1.0;
         const accelerationProgress = timeSinceAcceleration / this.ACCELERATION_DURATION;
         const boostFactor = 1 + (momentum * 0.3 * (1 - accelerationProgress));
@@ -240,19 +237,15 @@ export class EnemyPhysics {
         enemy.vx *= boostFactor;
         enemy.vy *= boostFactor;
       } else {
-        // Deceleration phase
         const currentSpeed = Math.sqrt(enemy.vx * enemy.vx + enemy.vy * enemy.vy);
         if (currentSpeed > this.MIN_SPEED * 1.2) {
-          // Gradual deceleration with momentum decay
           const decelerationFactor = this.DECELERATION_FACTOR + (Math.random() * 0.01 - 0.005);
           enemy.vx *= decelerationFactor;
           enemy.vy *= decelerationFactor;
           
-          // Decay momentum
           const currentMomentum = this.momentumFactors.get(index) || 1.0;
           this.momentumFactors.set(index, currentMomentum * this.MOMENTUM_DECAY);
         } else {
-          // Clear acceleration timer when speed is normalized
           this.accelerationTimers.delete(index);
         }
       }
@@ -280,7 +273,6 @@ export class EnemyPhysics {
     }
 
     if (wallBounce) {
-      // Add slight randomness to wall bounces
       const randomFactor = 0.9 + Math.random() * 0.2;
       enemy.vx *= randomFactor;
       enemy.vy *= randomFactor * 0.95;

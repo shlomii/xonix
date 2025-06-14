@@ -7,6 +7,7 @@ export class TrailManager {
   private canvasWidth: number;
   private canvasHeight: number;
   private floodFill: FloodFill;
+  private lastPlayerPosition: { x: number; y: number } | null = null;
 
   constructor(gridSize: number, canvasWidth: number, canvasHeight: number) {
     this.gridSize = gridSize;
@@ -40,6 +41,15 @@ export class TrailManager {
     const gridWidth = Math.floor(this.canvasWidth / this.gridSize);
     const gridHeight = Math.floor(this.canvasHeight / this.gridSize);
     
+    // Check if player position changed
+    const currentPos = { x: gridX, y: gridY };
+    if (this.lastPlayerPosition) {
+      if (this.lastPlayerPosition.x === currentPos.x && this.lastPlayerPosition.y === currentPos.y) {
+        return; // No movement, no score update
+      }
+    }
+    this.lastPlayerPosition = currentPos;
+    
     // Check if player is on the border or filled area
     const isOnBorder = gridX === 0 || gridY === 0 || 
                       gridX === gridWidth - 1 || 
@@ -59,9 +69,12 @@ export class TrailManager {
       }
       gameState.trail = [];
     } else {
+      // Player is in uncharted territory - add slow score increase
+      gameState.score += 1; // Small score for exploring
+      
       // Add to trail if not already there
-      const currentPos = `${gridX},${gridY}`;
-      if (!gameState.trail.some(pos => `${Math.floor(pos.x / this.gridSize)},${Math.floor(pos.y / this.gridSize)}` === currentPos)) {
+      const currentPosStr = `${gridX},${gridY}`;
+      if (!gameState.trail.some(pos => `${Math.floor(pos.x / this.gridSize)},${Math.floor(pos.y / this.gridSize)}` === currentPosStr)) {
         gameState.trail.push({ x: gridX * this.gridSize, y: gridY * this.gridSize });
       }
     }
@@ -120,6 +133,7 @@ export class TrailManager {
 
     // Determine which areas to fill based on enemy positions
     let totalNewlyFilledCells = 0;
+    let largestAreaSize = 0;
     
     // Check each area to see if it contains enemies
     areas.forEach((area, index) => {
@@ -133,6 +147,7 @@ export class TrailManager {
 
       // Fill areas that don't contain enemies
       if (!hasEnemy) {
+        largestAreaSize = Math.max(largestAreaSize, area.size);
         area.forEach(cell => {
           if (!gameState.filledCells.has(cell)) {
             gameState.filledCells.add(cell);
@@ -151,10 +166,26 @@ export class TrailManager {
     });
 
     console.log('Newly filled cells:', totalNewlyFilledCells);
+    console.log('Largest area size:', largestAreaSize);
     console.log('Total filled cells after:', gameState.filledCells.size);
 
-    // Add score for newly filled cells
-    gameState.score += totalNewlyFilledCells * 10;
+    // Exponential scoring system - rewards large areas exponentially
+    if (totalNewlyFilledCells > 0) {
+      // Base score per cell
+      const baseScore = 10;
+      
+      // Exponential bonus based on area size - larger areas get exponentially more points
+      const exponentialBonus = Math.pow(totalNewlyFilledCells, 1.5) * 5;
+      
+      // Additional bonus for very large areas (50+ cells)
+      const largeSizeBonus = totalNewlyFilledCells >= 50 ? totalNewlyFilledCells * 20 : 0;
+      
+      const totalScore = Math.floor(baseScore * totalNewlyFilledCells + exponentialBonus + largeSizeBonus);
+      
+      console.log(`Scoring: ${totalNewlyFilledCells} cells = ${baseScore * totalNewlyFilledCells} base + ${Math.floor(exponentialBonus)} exponential + ${largeSizeBonus} large bonus = ${totalScore} total`);
+      
+      gameState.score += totalScore;
+    }
 
     // Update area filled percentage
     const totalCells = gridWidth * gridHeight;
