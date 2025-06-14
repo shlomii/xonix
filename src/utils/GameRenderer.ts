@@ -81,32 +81,19 @@ export class GameRenderer {
   }
 
   private drawFilledAreas(ctx: CanvasRenderingContext2D, filledCells: Set<string>) {
-    // Enhanced purple filled areas with better visual feedback
-    const gradient = ctx.createLinearGradient(0, 0, this.canvasWidth, this.canvasHeight);
-    gradient.addColorStop(0, 'rgba(147, 51, 234, 0.85)');
-    gradient.addColorStop(1, 'rgba(126, 34, 206, 0.85)');
-    ctx.fillStyle = gradient;
-
+    // Solid purple filled areas
+    ctx.fillStyle = '#8B5CF6'; // Solid purple color
+    
     filledCells.forEach(cell => {
       const [x, y] = cell.split(',').map(Number);
       ctx.fillRect(x * this.gridSize, y * this.gridSize, this.gridSize, this.gridSize);
     });
 
-    // Enhanced pattern with subtle border highlights
-    ctx.fillStyle = 'rgba(167, 71, 254, 0.4)';
+    // Add subtle border to filled areas for better definition
+    ctx.strokeStyle = '#6D28D9';
+    ctx.lineWidth = 0.5;
     filledCells.forEach(cell => {
       const [x, y] = cell.split(',').map(Number);
-      const centerX = x * this.gridSize + this.gridSize / 2;
-      const centerY = y * this.gridSize + this.gridSize / 2;
-      
-      // Small dot pattern to indicate safety
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, 1.5, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Add subtle inner border for better definition
-      ctx.strokeStyle = 'rgba(147, 51, 234, 0.3)';
-      ctx.lineWidth = 0.5;
       ctx.strokeRect(x * this.gridSize + 0.5, y * this.gridSize + 0.5, this.gridSize - 1, this.gridSize - 1);
     });
   }
@@ -116,119 +103,64 @@ export class GameRenderer {
 
     const gridWidth = Math.floor(this.canvasWidth / this.gridSize);
     const gridHeight = Math.floor(this.canvasHeight / this.gridSize);
-    const playerGridX = Math.floor(player.x / this.gridSize);
-    const playerGridY = Math.floor(player.y / this.gridSize);
 
-    // Find the starting point by looking for the connection to filled area or border
-    let startPoint = this.findTrailStartPoint(trail, filledCells, gridWidth, gridHeight);
-
-    // Smooth pink trail line
-    ctx.strokeStyle = 'rgb(236, 72, 153)';
-    ctx.lineWidth = 4;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.shadowColor = 'rgba(236, 72, 153, 0.5)';
-    ctx.shadowBlur = 6;
-
-    ctx.beginPath();
-    
-    if (startPoint) {
-      ctx.moveTo(startPoint.x, startPoint.y);
-      
-      // Draw through all trail positions
-      for (let i = 0; i < trail.length; i++) {
-        const pos = trail[i];
-        const centerX = pos.x + this.gridSize / 2;
-        const centerY = pos.y + this.gridSize / 2;
-        ctx.lineTo(centerX, centerY);
-      }
-      
-      // Connect to current player position
-      const playerCenterX = player.x + this.gridSize / 2;
-      const playerCenterY = player.y + this.gridSize / 2;
-      ctx.lineTo(playerCenterX, playerCenterY);
-      
-      // Connect to end point (border or filled area)
-      const endPoint = this.findTrailEndPoint(player, filledCells, gridWidth, gridHeight);
-      if (endPoint) {
-        ctx.lineTo(endPoint.x, endPoint.y);
-      }
-    }
-    
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-
-    // Small trail dots for better visibility
-    ctx.fillStyle = 'rgb(219, 39, 119)';
+    // Draw chalky trail effect for each trail cell
     trail.forEach(pos => {
-      const centerX = pos.x + this.gridSize / 2;
-      const centerY = pos.y + this.gridSize / 2;
+      const gridX = Math.floor(pos.x / this.gridSize);
+      const gridY = Math.floor(pos.y / this.gridSize);
       
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
-      ctx.fill();
+      this.drawChalkCell(ctx, gridX * this.gridSize, gridY * this.gridSize);
     });
 
-    // Highlight player position when on trail
-    ctx.fillStyle = 'rgba(236, 72, 153, 0.3)';
-    ctx.fillRect(player.x, player.y, this.gridSize, this.gridSize);
-  }
-
-  private findTrailStartPoint(trail: Array<{x: number, y: number}>, filledCells: Set<string>, gridWidth: number, gridHeight: number): {x: number, y: number} | null {
-    if (trail.length === 0) return null;
-
-    const firstPos = trail[0];
-    const firstGridX = Math.floor(firstPos.x / this.gridSize);
-    const firstGridY = Math.floor(firstPos.y / this.gridSize);
-
-    // Check all 4 directions from the first trail position to find connection to filled area or border
-    const directions = [
-      { dx: -1, dy: 0 }, // left
-      { dx: 1, dy: 0 },  // right
-      { dx: 0, dy: -1 }, // up
-      { dx: 0, dy: 1 }   // down
-    ];
-
-    for (const dir of directions) {
-      const checkX = firstGridX + dir.dx;
-      const checkY = firstGridY + dir.dy;
-      
-      // Check if this direction leads to border
-      if (checkX < 0 || checkX >= gridWidth || checkY < 0 || checkY >= gridHeight) {
-        // Return border edge point
-        if (checkX < 0) return { x: 0, y: firstPos.y + this.gridSize / 2 };
-        if (checkX >= gridWidth) return { x: this.canvasWidth, y: firstPos.y + this.gridSize / 2 };
-        if (checkY < 0) return { x: firstPos.x + this.gridSize / 2, y: 0 };
-        if (checkY >= gridHeight) return { x: firstPos.x + this.gridSize / 2, y: this.canvasHeight };
-      }
-      
-      // Check if this direction leads to filled area
-      if (filledCells.has(`${checkX},${checkY}`)) {
-        return { x: firstPos.x + this.gridSize / 2, y: firstPos.y + this.gridSize / 2 };
-      }
-    }
-
-    return { x: firstPos.x + this.gridSize / 2, y: firstPos.y + this.gridSize / 2 };
-  }
-
-  private findTrailEndPoint(player: {x: number, y: number}, filledCells: Set<string>, gridWidth: number, gridHeight: number): {x: number, y: number} | null {
+    // Highlight current player position if on trail
     const playerGridX = Math.floor(player.x / this.gridSize);
     const playerGridY = Math.floor(player.y / this.gridSize);
-    const playerCenterX = player.x + this.gridSize / 2;
-    const playerCenterY = player.y + this.gridSize / 2;
-
-    // Check if player is on border
-    if (playerGridX === 0) return { x: 0, y: playerCenterY };
-    if (playerGridX === gridWidth - 1) return { x: this.canvasWidth, y: playerCenterY };
-    if (playerGridY === 0) return { x: playerCenterX, y: 0 };
-    if (playerGridY === gridHeight - 1) return { x: playerCenterX, y: this.canvasHeight };
-
-    // Check if player is on filled area - just return player center
-    if (filledCells.has(`${playerGridX},${playerGridY}`)) {
-      return { x: playerCenterX, y: playerCenterY };
+    const isPlayerOnBorder = playerGridX === 0 || playerGridX === gridWidth - 1 || 
+                           playerGridY === 0 || playerGridY === gridHeight - 1;
+    const isPlayerOnFilled = filledCells.has(`${playerGridX},${playerGridY}`);
+    
+    if (!isPlayerOnBorder && !isPlayerOnFilled) {
+      this.drawChalkCell(ctx, player.x, player.y);
     }
+  }
 
-    return null;
+  private drawChalkCell(ctx: CanvasRenderingContext2D, x: number, y: number) {
+    // Create chalky texture effect
+    ctx.fillStyle = '#EC4899'; // Base pink color
+    ctx.fillRect(x, y, this.gridSize, this.gridSize);
+    
+    // Add chalky texture with multiple random dots/specks
+    ctx.fillStyle = '#F8BBD9'; // Lighter pink for highlights
+    const numSpecks = 8 + Math.floor(Math.random() * 4); // 8-12 specks per cell
+    
+    for (let i = 0; i < numSpecks; i++) {
+      const speckX = x + Math.random() * this.gridSize;
+      const speckY = y + Math.random() * this.gridSize;
+      const speckSize = 0.5 + Math.random() * 1.5; // Random size between 0.5-2px
+      
+      ctx.beginPath();
+      ctx.arc(speckX, speckY, speckSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Add some darker specks for depth
+    ctx.fillStyle = '#BE185D'; // Darker pink
+    const numDarkSpecks = 3 + Math.floor(Math.random() * 3); // 3-6 dark specks
+    
+    for (let i = 0; i < numDarkSpecks; i++) {
+      const speckX = x + Math.random() * this.gridSize;
+      const speckY = y + Math.random() * this.gridSize;
+      const speckSize = 0.3 + Math.random() * 0.8; // Smaller dark specks
+      
+      ctx.beginPath();
+      ctx.arc(speckX, speckY, speckSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Add subtle border
+    ctx.strokeStyle = 'rgba(236, 72, 153, 0.6)';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(x + 0.5, y + 0.5, this.gridSize - 1, this.gridSize - 1);
   }
 
   private drawEnemies(ctx: CanvasRenderingContext2D, enemies: Array<{x: number, y: number}>) {
