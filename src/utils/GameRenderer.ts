@@ -125,40 +125,49 @@ export class GameRenderer {
   }
 
   private drawChalkCell(ctx: CanvasRenderingContext2D, x: number, y: number) {
-    // Create chalky texture effect
+    // Create matte chalk base
     ctx.fillStyle = '#EC4899'; // Base pink color
     ctx.fillRect(x, y, this.gridSize, this.gridSize);
     
-    // Add chalky texture with multiple random dots/specks
-    ctx.fillStyle = '#F8BBD9'; // Lighter pink for highlights
-    const numSpecks = 8 + Math.floor(Math.random() * 4); // 8-12 specks per cell
+    // Add chalk dust texture with small, subtle specks
+    ctx.fillStyle = '#F3E8FF'; // Very light lavender for chalk dust
+    const numDustParticles = 12 + Math.floor(Math.random() * 8); // More particles but smaller
     
-    for (let i = 0; i < numSpecks; i++) {
-      const speckX = x + Math.random() * this.gridSize;
-      const speckY = y + Math.random() * this.gridSize;
-      const speckSize = 0.5 + Math.random() * 1.5; // Random size between 0.5-2px
+    for (let i = 0; i < numDustParticles; i++) {
+      const dustX = x + Math.random() * this.gridSize;
+      const dustY = y + Math.random() * this.gridSize;
+      const dustSize = 0.3 + Math.random() * 0.7; // Small dust particles
+      const opacity = 0.3 + Math.random() * 0.4; // Subtle opacity variation
       
+      ctx.globalAlpha = opacity;
       ctx.beginPath();
-      ctx.arc(speckX, speckY, speckSize, 0, Math.PI * 2);
+      ctx.arc(dustX, dustY, dustSize, 0, Math.PI * 2);
       ctx.fill();
     }
     
-    // Add some darker specks for depth
-    ctx.fillStyle = '#BE185D'; // Darker pink
-    const numDarkSpecks = 3 + Math.floor(Math.random() * 3); // 3-6 dark specks
+    // Reset alpha
+    ctx.globalAlpha = 1.0;
     
-    for (let i = 0; i < numDarkSpecks; i++) {
-      const speckX = x + Math.random() * this.gridSize;
-      const speckY = y + Math.random() * this.gridSize;
-      const speckSize = 0.3 + Math.random() * 0.8; // Smaller dark specks
+    // Add some slightly darker chalk streaks for texture (not sparkly)
+    ctx.fillStyle = '#D946EF'; // Slightly darker pink
+    const numStreaks = 3 + Math.floor(Math.random() * 3); // 3-6 streaks
+    
+    for (let i = 0; i < numStreaks; i++) {
+      const streakX = x + Math.random() * this.gridSize;
+      const streakY = y + Math.random() * this.gridSize;
+      const streakSize = 0.4 + Math.random() * 0.6; // Small streaks
       
+      ctx.globalAlpha = 0.6;
       ctx.beginPath();
-      ctx.arc(speckX, speckY, speckSize, 0, Math.PI * 2);
+      ctx.arc(streakX, streakY, streakSize, 0, Math.PI * 2);
       ctx.fill();
     }
     
-    // Add subtle border
-    ctx.strokeStyle = 'rgba(236, 72, 153, 0.6)';
+    // Reset alpha
+    ctx.globalAlpha = 1.0;
+    
+    // Add very subtle matte border
+    ctx.strokeStyle = 'rgba(236, 72, 153, 0.3)';
     ctx.lineWidth = 0.5;
     ctx.strokeRect(x + 0.5, y + 0.5, this.gridSize - 1, this.gridSize - 1);
   }
