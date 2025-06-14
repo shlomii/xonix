@@ -35,7 +35,7 @@ export class GameRenderer {
     this.drawFilledAreas(ctx, gameState.filledCells);
 
     // Draw trail
-    this.drawTrail(ctx, gameState.trail, gameState.player);
+    this.drawTrail(ctx, gameState.trail, gameState.player, gameState.filledCells);
 
     // Draw enemies
     this.drawEnemies(ctx, gameState.enemies);
@@ -111,14 +111,16 @@ export class GameRenderer {
     });
   }
 
-  private drawTrail(ctx: CanvasRenderingContext2D, trail: Array<{x: number, y: number}>, player: {x: number, y: number}) {
+  private drawTrail(ctx: CanvasRenderingContext2D, trail: Array<{x: number, y: number}>, player: {x: number, y: number}, filledCells: Set<string>) {
     if (trail.length === 0) return;
 
-    // Get grid dimensions
     const gridWidth = Math.floor(this.canvasWidth / this.gridSize);
     const gridHeight = Math.floor(this.canvasHeight / this.gridSize);
     const playerGridX = Math.floor(player.x / this.gridSize);
     const playerGridY = Math.floor(player.y / this.gridSize);
+
+    // Find the starting point by looking for the connection to filled area or border
+    let startPoint = this.findTrailStartPoint(trail, filledCells, gridWidth, gridHeight);
 
     // Smooth pink trail line
     ctx.strokeStyle = 'rgb(236, 72, 153)';
@@ -130,60 +132,14 @@ export class GameRenderer {
 
     ctx.beginPath();
     
-    if (trail.length > 0) {
-      // Get the first trail position
-      const firstPos = trail[0];
-      const firstGridX = Math.floor(firstPos.x / this.gridSize);
-      const firstGridY = Math.floor(firstPos.y / this.gridSize);
-      
-      // Determine where to start the line based on the first trail position
-      let startX, startY;
-      
-      // Check if first trail position is adjacent to a border
-      const isAdjacentToLeftBorder = firstGridX === 1;
-      const isAdjacentToRightBorder = firstGridX === gridWidth - 2;
-      const isAdjacentToTopBorder = firstGridY === 1;
-      const isAdjacentToBottomBorder = firstGridY === gridHeight - 2;
-      
-      // Start from the appropriate border edge if the trail begins adjacent to border
-      if (isAdjacentToLeftBorder && !isAdjacentToTopBorder && !isAdjacentToBottomBorder) {
-        startX = 0;
-        startY = firstPos.y + this.gridSize / 2;
-      } else if (isAdjacentToRightBorder && !isAdjacentToTopBorder && !isAdjacentToBottomBorder) {
-        startX = this.canvasWidth;
-        startY = firstPos.y + this.gridSize / 2;
-      } else if (isAdjacentToTopBorder && !isAdjacentToLeftBorder && !isAdjacentToRightBorder) {
-        startX = firstPos.x + this.gridSize / 2;
-        startY = 0;
-      } else if (isAdjacentToBottomBorder && !isAdjacentToLeftBorder && !isAdjacentToRightBorder) {
-        startX = firstPos.x + this.gridSize / 2;
-        startY = this.canvasHeight;
-      } else if (isAdjacentToLeftBorder && isAdjacentToTopBorder) {
-        startX = 0;
-        startY = 0;
-      } else if (isAdjacentToRightBorder && isAdjacentToTopBorder) {
-        startX = this.canvasWidth;
-        startY = 0;
-      } else if (isAdjacentToLeftBorder && isAdjacentToBottomBorder) {
-        startX = 0;
-        startY = this.canvasHeight;
-      } else if (isAdjacentToRightBorder && isAdjacentToBottomBorder) {
-        startX = this.canvasWidth;
-        startY = this.canvasHeight;
-      } else {
-        // Default to center of first trail position
-        startX = firstPos.x + this.gridSize / 2;
-        startY = firstPos.y + this.gridSize / 2;
-      }
-      
-      ctx.moveTo(startX, startY);
+    if (startPoint) {
+      ctx.moveTo(startPoint.x, startPoint.y);
       
       // Draw through all trail positions
       for (let i = 0; i < trail.length; i++) {
         const pos = trail[i];
         const centerX = pos.x + this.gridSize / 2;
         const centerY = pos.y + this.gridSize / 2;
-        
         ctx.lineTo(centerX, centerY);
       }
       
@@ -192,41 +148,17 @@ export class GameRenderer {
       const playerCenterY = player.y + this.gridSize / 2;
       ctx.lineTo(playerCenterX, playerCenterY);
       
-      // Check if player is on any border and extend line to that border
-      const isOnLeftBorder = playerGridX === 0;
-      const isOnRightBorder = playerGridX === gridWidth - 1;
-      const isOnTopBorder = playerGridY === 0;
-      const isOnBottomBorder = playerGridY === gridHeight - 1;
-      
-      if (isOnLeftBorder) {
-        ctx.lineTo(0, playerCenterY);
-      }
-      if (isOnRightBorder) {
-        ctx.lineTo(this.canvasWidth, playerCenterY);
-      }
-      if (isOnTopBorder) {
-        ctx.lineTo(playerCenterX, 0);
-      }
-      if (isOnBottomBorder) {
-        ctx.lineTo(playerCenterX, this.canvasHeight);
-      }
-      
-      // Handle corners - extend to actual corner point
-      if (isOnLeftBorder && isOnTopBorder) {
-        ctx.lineTo(0, 0);
-      } else if (isOnRightBorder && isOnTopBorder) {
-        ctx.lineTo(this.canvasWidth, 0);
-      } else if (isOnLeftBorder && isOnBottomBorder) {
-        ctx.lineTo(0, this.canvasHeight);
-      } else if (isOnRightBorder && isOnBottomBorder) {
-        ctx.lineTo(this.canvasWidth, this.canvasHeight);
+      // Connect to end point (border or filled area)
+      const endPoint = this.findTrailEndPoint(player, filledCells, gridWidth, gridHeight);
+      if (endPoint) {
+        ctx.lineTo(endPoint.x, endPoint.y);
       }
     }
     
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Small trail dots
+    // Small trail dots for better visibility
     ctx.fillStyle = 'rgb(219, 39, 119)';
     trail.forEach(pos => {
       const centerX = pos.x + this.gridSize / 2;
@@ -236,6 +168,67 @@ export class GameRenderer {
       ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
       ctx.fill();
     });
+
+    // Highlight player position when on trail
+    ctx.fillStyle = 'rgba(236, 72, 153, 0.3)';
+    ctx.fillRect(player.x, player.y, this.gridSize, this.gridSize);
+  }
+
+  private findTrailStartPoint(trail: Array<{x: number, y: number}>, filledCells: Set<string>, gridWidth: number, gridHeight: number): {x: number, y: number} | null {
+    if (trail.length === 0) return null;
+
+    const firstPos = trail[0];
+    const firstGridX = Math.floor(firstPos.x / this.gridSize);
+    const firstGridY = Math.floor(firstPos.y / this.gridSize);
+
+    // Check all 4 directions from the first trail position to find connection to filled area or border
+    const directions = [
+      { dx: -1, dy: 0 }, // left
+      { dx: 1, dy: 0 },  // right
+      { dx: 0, dy: -1 }, // up
+      { dx: 0, dy: 1 }   // down
+    ];
+
+    for (const dir of directions) {
+      const checkX = firstGridX + dir.dx;
+      const checkY = firstGridY + dir.dy;
+      
+      // Check if this direction leads to border
+      if (checkX < 0 || checkX >= gridWidth || checkY < 0 || checkY >= gridHeight) {
+        // Return border edge point
+        if (checkX < 0) return { x: 0, y: firstPos.y + this.gridSize / 2 };
+        if (checkX >= gridWidth) return { x: this.canvasWidth, y: firstPos.y + this.gridSize / 2 };
+        if (checkY < 0) return { x: firstPos.x + this.gridSize / 2, y: 0 };
+        if (checkY >= gridHeight) return { x: firstPos.x + this.gridSize / 2, y: this.canvasHeight };
+      }
+      
+      // Check if this direction leads to filled area
+      if (filledCells.has(`${checkX},${checkY}`)) {
+        return { x: firstPos.x + this.gridSize / 2, y: firstPos.y + this.gridSize / 2 };
+      }
+    }
+
+    return { x: firstPos.x + this.gridSize / 2, y: firstPos.y + this.gridSize / 2 };
+  }
+
+  private findTrailEndPoint(player: {x: number, y: number}, filledCells: Set<string>, gridWidth: number, gridHeight: number): {x: number, y: number} | null {
+    const playerGridX = Math.floor(player.x / this.gridSize);
+    const playerGridY = Math.floor(player.y / this.gridSize);
+    const playerCenterX = player.x + this.gridSize / 2;
+    const playerCenterY = player.y + this.gridSize / 2;
+
+    // Check if player is on border
+    if (playerGridX === 0) return { x: 0, y: playerCenterY };
+    if (playerGridX === gridWidth - 1) return { x: this.canvasWidth, y: playerCenterY };
+    if (playerGridY === 0) return { x: playerCenterX, y: 0 };
+    if (playerGridY === gridHeight - 1) return { x: playerCenterX, y: this.canvasHeight };
+
+    // Check if player is on filled area - just return player center
+    if (filledCells.has(`${playerGridX},${playerGridY}`)) {
+      return { x: playerCenterX, y: playerCenterY };
+    }
+
+    return null;
   }
 
   private drawEnemies(ctx: CanvasRenderingContext2D, enemies: Array<{x: number, y: number}>) {
