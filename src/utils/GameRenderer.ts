@@ -15,6 +15,10 @@ export class GameRenderer {
   render(ctx: CanvasRenderingContext2D, gameState: GameState) {
     this.time += 0.02;
     
+    // Enable high-quality rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    
     // Clear canvas with smooth gradient background
     this.drawBackground(ctx);
 
@@ -38,48 +42,52 @@ export class GameRenderer {
   }
 
   private drawBackground(ctx: CanvasRenderingContext2D) {
-    // Smooth gradient background
+    // Enhanced gradient background with more depth
     const gradient = ctx.createLinearGradient(0, 0, this.canvasWidth, this.canvasHeight);
     gradient.addColorStop(0, '#1a1a2e');
-    gradient.addColorStop(0.5, '#16213e');
-    gradient.addColorStop(1, '#0f3460');
+    gradient.addColorStop(0.3, '#16213e');
+    gradient.addColorStop(0.7, '#0f3460');
+    gradient.addColorStop(1, '#0e2a4f');
     
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
   }
 
   private drawGrid(ctx: CanvasRenderingContext2D) {
-    ctx.strokeStyle = 'rgba(100, 200, 255, 0.1)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(100, 200, 255, 0.08)'; // More subtle grid
+    ctx.lineWidth = 0.5; // Thinner lines for higher resolution
 
     // Vertical lines
     for (let x = 0; x <= this.canvasWidth; x += this.gridSize) {
       ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, this.canvasHeight);
+      ctx.moveTo(x + 0.5, 0); // Add 0.5 for crisp lines
+      ctx.lineTo(x + 0.5, this.canvasHeight);
       ctx.stroke();
     }
 
     // Horizontal lines
     for (let y = 0; y <= this.canvasHeight; y += this.gridSize) {
       ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(this.canvasWidth, y);
+      ctx.moveTo(0, y + 0.5); // Add 0.5 for crisp lines
+      ctx.lineTo(this.canvasWidth, y + 0.5);
       ctx.stroke();
     }
   }
 
   private drawFilledAreas(ctx: CanvasRenderingContext2D, filledCells: Set<string>) {
-    // Pleasant purple filled areas - now includes border cells
-    ctx.fillStyle = 'rgba(147, 51, 234, 0.8)';
+    // Enhanced purple filled areas with better visual feedback
+    const gradient = ctx.createLinearGradient(0, 0, this.canvasWidth, this.canvasHeight);
+    gradient.addColorStop(0, 'rgba(147, 51, 234, 0.85)');
+    gradient.addColorStop(1, 'rgba(126, 34, 206, 0.85)');
+    ctx.fillStyle = gradient;
 
     filledCells.forEach(cell => {
       const [x, y] = cell.split(',').map(Number);
       ctx.fillRect(x * this.gridSize, y * this.gridSize, this.gridSize, this.gridSize);
     });
 
-    // Add a subtle pattern to show these are safe areas
-    ctx.fillStyle = 'rgba(167, 71, 254, 0.3)';
+    // Enhanced pattern with subtle border highlights
+    ctx.fillStyle = 'rgba(167, 71, 254, 0.4)';
     filledCells.forEach(cell => {
       const [x, y] = cell.split(',').map(Number);
       const centerX = x * this.gridSize + this.gridSize / 2;
@@ -87,8 +95,13 @@ export class GameRenderer {
       
       // Small dot pattern to indicate safety
       ctx.beginPath();
-      ctx.arc(centerX, centerY, 2, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, 1.5, 0, Math.PI * 2);
       ctx.fill();
+      
+      // Add subtle inner border for better definition
+      ctx.strokeStyle = 'rgba(147, 51, 234, 0.3)';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(x * this.gridSize + 0.5, y * this.gridSize + 0.5, this.gridSize - 1, this.gridSize - 1);
     });
   }
 
@@ -225,25 +238,31 @@ export class GameRenderer {
       const centerY = enemy.y + this.gridSize / 2;
       const pulse = Math.sin(this.time * 4 + index) * 0.1 + 1;
       
-      // Enemy glow
-      ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
-      ctx.shadowColor = 'rgba(239, 68, 68, 0.5)';
-      ctx.shadowBlur = 10;
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, this.gridSize * 0.6 * pulse, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
+      // Enhanced enemy glow with better quality
+      const glowGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, this.gridSize * 0.8 * pulse);
+      glowGradient.addColorStop(0, 'rgba(239, 68, 68, 0.6)');
+      glowGradient.addColorStop(0.5, 'rgba(239, 68, 68, 0.3)');
+      glowGradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
       
-      // Enemy core
-      ctx.fillStyle = 'rgb(220, 38, 38)';
+      ctx.fillStyle = glowGradient;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, this.gridSize * 0.8 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Enemy core with better definition
+      const coreGradient = ctx.createRadialGradient(centerX - 2, centerY - 2, 0, centerX, centerY, this.gridSize * 0.3 * pulse);
+      coreGradient.addColorStop(0, 'rgb(248, 113, 113)');
+      coreGradient.addColorStop(1, 'rgb(220, 38, 38)');
+      
+      ctx.fillStyle = coreGradient;
       ctx.beginPath();
       ctx.arc(centerX, centerY, this.gridSize * 0.3 * pulse, 0, Math.PI * 2);
       ctx.fill();
       
-      // Enemy highlight
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      // Enhanced highlight
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
       ctx.beginPath();
-      ctx.arc(centerX - 2, centerY - 2, this.gridSize * 0.1 * pulse, 0, Math.PI * 2);
+      ctx.arc(centerX - 2, centerY - 2, this.gridSize * 0.08 * pulse, 0, Math.PI * 2);
       ctx.fill();
     });
   }
@@ -253,35 +272,41 @@ export class GameRenderer {
     const centerY = player.y + this.gridSize / 2;
     const pulse = Math.sin(this.time * 5) * 0.08 + 1;
     
-    // Player glow
-    ctx.fillStyle = 'rgba(34, 197, 94, 0.4)';
-    ctx.shadowColor = 'rgba(34, 197, 94, 0.6)';
-    ctx.shadowBlur = 8;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, this.gridSize * 0.6 * pulse, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
+    // Enhanced player glow
+    const glowGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, this.gridSize * 0.8 * pulse);
+    glowGradient.addColorStop(0, 'rgba(34, 197, 94, 0.6)');
+    glowGradient.addColorStop(0.5, 'rgba(34, 197, 94, 0.3)');
+    glowGradient.addColorStop(1, 'rgba(34, 197, 94, 0)');
     
-    // Player body
-    ctx.fillStyle = 'rgb(22, 163, 74)';
+    ctx.fillStyle = glowGradient;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, this.gridSize * 0.8 * pulse, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Player body with gradient
+    const bodyGradient = ctx.createRadialGradient(centerX - 2, centerY - 2, 0, centerX, centerY, this.gridSize * 0.3 * pulse);
+    bodyGradient.addColorStop(0, 'rgb(74, 222, 128)');
+    bodyGradient.addColorStop(1, 'rgb(22, 163, 74)');
+    
+    ctx.fillStyle = bodyGradient;
     ctx.beginPath();
     ctx.arc(centerX, centerY, this.gridSize * 0.3 * pulse, 0, Math.PI * 2);
     ctx.fill();
     
-    // Player highlight
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    // Enhanced highlight
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
     ctx.beginPath();
-    ctx.arc(centerX - 2, centerY - 2, this.gridSize * 0.1 * pulse, 0, Math.PI * 2);
+    ctx.arc(centerX - 2, centerY - 2, this.gridSize * 0.08 * pulse, 0, Math.PI * 2);
     ctx.fill();
   }
 
   private drawCanvasBoundary(ctx: CanvasRenderingContext2D) {
-    // Just a thin green outline to show the game boundary
-    ctx.strokeStyle = 'rgba(34, 197, 94, 0.6)';
+    // Crisp boundary with pixel-perfect alignment
+    ctx.strokeStyle = 'rgba(34, 197, 94, 0.8)';
     ctx.lineWidth = 2;
     
     ctx.beginPath();
-    ctx.rect(1, 1, this.canvasWidth - 2, this.canvasHeight - 2);
+    ctx.rect(1.5, 1.5, this.canvasWidth - 3, this.canvasHeight - 3); // Adjusted for crisp lines
     ctx.stroke();
   }
 }

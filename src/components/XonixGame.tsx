@@ -5,19 +5,19 @@ import { useGameLoop } from '../hooks/useGameLoop';
 import { GameRenderer } from '../utils/GameRenderer';
 import { GameLogic } from '../utils/GameLogic';
 
-const GRID_SIZE = 20;
-const CANVAS_WIDTH = 800;
-const CANVAS_HEIGHT = 600;
+const GRID_SIZE = 15; // Reduced from 20 for higher precision
+const CANVAS_WIDTH = 1200; // Increased from 800
+const CANVAS_HEIGHT = 900; // Increased from 600
 
 const XonixGame: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [gameState, setGameState] = useState<GameState>({
     player: { x: 0, y: 0, vx: 0, vy: 0 }, // Start on border (0,0)
     enemies: [
-      { x: 400, y: 200, vx: 2, vy: 1.5 },
-      { x: 600, y: 300, vx: -1.5, vy: 2 },
-      { x: 300, y: 400, vx: 1, vy: -2 },
-      { x: 500, y: 450, vx: -2, vy: -1 }
+      { x: 600, y: 300, vx: 2, vy: 1.5 }, // Adjusted positions for new canvas size
+      { x: 900, y: 450, vx: -1.5, vy: 2 },
+      { x: 450, y: 600, vx: 1, vy: -2 },
+      { x: 750, y: 675, vx: -2, vy: -1 }
     ],
     trail: [],
     filledCells: new Set(),
@@ -77,6 +77,26 @@ const XonixGame: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // High DPI support for crisp rendering
+    const devicePixelRatio = window.devicePixelRatio || 1;
+    const displayWidth = CANVAS_WIDTH;
+    const displayHeight = CANVAS_HEIGHT;
+    
+    // Set actual canvas size for high DPI
+    canvas.width = displayWidth * devicePixelRatio;
+    canvas.height = displayHeight * devicePixelRatio;
+    
+    // Scale display size back to logical size
+    canvas.style.width = displayWidth + 'px';
+    canvas.style.height = displayHeight + 'px';
+    
+    // Scale the drawing context to match device pixel ratio
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+    
+    // Enable anti-aliasing for smoother rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
     renderer.current.render(ctx, gameState);
   }, [gameState]);
 
@@ -84,10 +104,10 @@ const XonixGame: React.FC = () => {
     setGameState({
       player: { x: 0, y: 0, vx: 0, vy: 0 }, // Start on border (0,0)
       enemies: [
-        { x: 400, y: 200, vx: 2, vy: 1.5 },
-        { x: 600, y: 300, vx: -1.5, vy: 2 },
-        { x: 300, y: 400, vx: 1, vy: -2 },
-        { x: 500, y: 450, vx: -2, vy: -1 }
+        { x: 600, y: 300, vx: 2, vy: 1.5 }, // Adjusted positions for new canvas size
+        { x: 900, y: 450, vx: -1.5, vy: 2 },
+        { x: 450, y: 600, vx: 1, vy: -2 },
+        { x: 750, y: 675, vx: -2, vy: -1 }
       ],
       trail: [],
       filledCells: new Set(),
@@ -100,7 +120,7 @@ const XonixGame: React.FC = () => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 p-4">
-      <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border border-white/20">
+      <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border border-white/20 max-w-7xl">
         <h1 className="text-4xl font-bold text-white text-center mb-6 bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
           XONIX
         </h1>
@@ -108,9 +128,7 @@ const XonixGame: React.FC = () => {
         <div className="relative mb-6">
           <canvas
             ref={canvasRef}
-            width={CANVAS_WIDTH}
-            height={CANVAS_HEIGHT}
-            className="border-4 border-green-500 rounded-lg shadow-lg bg-slate-900"
+            className="border-4 border-green-500 rounded-lg shadow-lg bg-slate-900 max-w-full h-auto"
           />
           
           {!gameState.isAlive && (
