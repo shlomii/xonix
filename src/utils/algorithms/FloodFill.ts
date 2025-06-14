@@ -5,8 +5,8 @@ export class FloodFill {
     startY: number, 
     gridWidth: number, 
     gridHeight: number,
-    filledCells: Set<string>,
-    trailSet: Set<string>,
+    boundarySet: Set<string>,
+    emptySet: Set<string>,
     visited: Set<string>
   ): Set<string> {
     const area = new Set<string>();
@@ -18,7 +18,7 @@ export class FloodFill {
 
       if (x < 0 || x >= gridWidth || y < 0 || y >= gridHeight) continue;
       if (visited.has(key)) continue;
-      if (filledCells.has(key) || trailSet.has(key)) continue;
+      if (boundarySet.has(key)) continue;
 
       visited.add(key);
       area.add(key);

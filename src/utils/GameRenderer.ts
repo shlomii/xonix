@@ -1,4 +1,3 @@
-
 import { GameState } from '../types/game';
 
 export class GameRenderer {
@@ -106,15 +105,9 @@ export class GameRenderer {
       const gridWidth = Math.floor(this.canvasWidth / this.gridSize);
       const gridHeight = Math.floor(this.canvasHeight / this.gridSize);
       
+      // Start from the center of the first trail cell
       let startX = firstPos.x + this.gridSize / 2;
       let startY = firstPos.y + this.gridSize / 2;
-      
-      // Connect to actual border edges
-      if (gridX === 0) startX = 0;
-      else if (gridX === gridWidth - 1) startX = this.canvasWidth;
-      
-      if (gridY === 0) startY = 0;
-      else if (gridY === gridHeight - 1) startY = this.canvasHeight;
       
       ctx.moveTo(startX, startY);
       
@@ -130,21 +123,20 @@ export class GameRenderer {
       const playerCenterY = player.y + this.gridSize / 2;
       ctx.lineTo(playerCenterX, playerCenterY);
       
-      // Connect player to border if on edge
+      // If player is on border, connect to the actual border edge
       const playerGridX = Math.floor(player.x / this.gridSize);
       const playerGridY = Math.floor(player.y / this.gridSize);
       
-      let endX = playerCenterX;
-      let endY = playerCenterY;
+      if (playerGridX === 0) {
+        ctx.lineTo(0, playerCenterY);
+      } else if (playerGridX === gridWidth - 1) {
+        ctx.lineTo(this.canvasWidth, playerCenterY);
+      }
       
-      if (playerGridX === 0) endX = 0;
-      else if (playerGridX === gridWidth - 1) endX = this.canvasWidth;
-      
-      if (playerGridY === 0) endY = 0;
-      else if (playerGridY === gridHeight - 1) endY = this.canvasHeight;
-      
-      if (endX !== playerCenterX || endY !== playerCenterY) {
-        ctx.lineTo(endX, endY);
+      if (playerGridY === 0) {
+        ctx.lineTo(playerCenterX, 0);
+      } else if (playerGridY === gridHeight - 1) {
+        ctx.lineTo(playerCenterX, this.canvasHeight);
       }
     }
     

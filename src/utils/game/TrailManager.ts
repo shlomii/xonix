@@ -19,11 +19,13 @@ export class TrailManager {
     const { player } = gameState;
     const gridX = Math.floor(player.x / this.gridSize);
     const gridY = Math.floor(player.y / this.gridSize);
+    const gridWidth = Math.floor(this.canvasWidth / this.gridSize);
+    const gridHeight = Math.floor(this.canvasHeight / this.gridSize);
     
     // Check if player is on the border or filled area
     const isOnBorder = gridX === 0 || gridY === 0 || 
-                      gridX === Math.floor(this.canvasWidth / this.gridSize) - 1 || 
-                      gridY === Math.floor(this.canvasHeight / this.gridSize) - 1;
+                      gridX === gridWidth - 1 || 
+                      gridY === gridHeight - 1;
     
     const isOnFilled = gameState.filledCells.has(`${gridX},${gridY}`);
 
@@ -37,7 +39,7 @@ export class TrailManager {
       // Add to trail if not already there
       const currentPos = `${gridX},${gridY}`;
       if (!gameState.trail.some(pos => `${Math.floor(pos.x / this.gridSize)},${Math.floor(pos.y / this.gridSize)}` === currentPos)) {
-        gameState.trail.push({ x: player.x, y: player.y });
+        gameState.trail.push({ x: gridX * this.gridSize, y: gridY * this.gridSize });
       }
     }
   }
@@ -54,6 +56,14 @@ export class TrailManager {
       trailSet.add(`${gridX},${gridY}`);
     });
 
+    // Add current player position to trail set for completion
+    const playerGridX = Math.floor(gameState.player.x / this.gridSize);
+    const playerGridY = Math.floor(gameState.player.y / this.gridSize);
+    trailSet.add(`${playerGridX},${playerGridY}`);
+
+    // Create combined set of filled cells and trail for boundary detection
+    const boundarySet = new Set([...gameState.filledCells, ...trailSet]);
+
     // Use flood fill to find areas to fill
     const visited = new Set<string>();
     const areasToFill: Set<string>[] = [];
@@ -61,8 +71,8 @@ export class TrailManager {
     for (let x = 0; x < gridWidth; x++) {
       for (let y = 0; y < gridHeight; y++) {
         const key = `${x},${y}`;
-        if (!visited.has(key) && !gameState.filledCells.has(key) && !trailSet.has(key)) {
-          const area = this.floodFill.floodFill(x, y, gridWidth, gridHeight, gameState.filledCells, trailSet, visited);
+        if (!visited.has(key) && !boundarySet.has(key)) {
+          const area = this.floodFill.floodFill(x, y, gridWidth, gridHeight, boundarySet, new Set(), visited);
           if (area.size > 0) {
             areasToFill.push(area);
           }
