@@ -61,10 +61,7 @@ export class TrailManager {
     const playerGridY = Math.floor(gameState.player.y / this.gridSize);
     trailSet.add(`${playerGridX},${playerGridY}`);
 
-    // First, add all trail cells to filled cells immediately
-    trailSet.forEach(cell => gameState.filledCells.add(cell));
-
-    // Create boundary set including borders, filled cells, and trail
+    // Create boundary set that includes borders, existing filled cells, and the new trail
     const boundarySet = new Set<string>();
     
     // Add border cells
@@ -77,45 +74,61 @@ export class TrailManager {
       boundarySet.add(`${gridWidth - 1},${y}`); // Right border
     }
     
-    // Add filled cells and trail to boundary
+    // Add existing filled cells to boundary
     gameState.filledCells.forEach(cell => boundarySet.add(cell));
+    
+    // Add trail to boundary (this creates the new enclosed boundary)
+    trailSet.forEach(cell => boundarySet.add(cell));
 
-    // Use flood fill to find empty areas
+    // Find all empty areas using flood fill
     const visited = new Set<string>();
-    const areasToFill: Set<string>[] = [];
+    const areas: Set<string>[] = [];
 
-    // Check all interior cells (not on the border)
-    for (let x = 1; x < gridWidth - 1; x++) {
-      for (let y = 1; y < gridHeight - 1; y++) {
+    // Check ALL cells in the grid to find empty areas
+    for (let x = 0; x < gridWidth; x++) {
+      for (let y = 0; y < gridHeight; y++) {
         const key = `${x},${y}`;
         if (!visited.has(key) && !boundarySet.has(key)) {
           const area = this.floodFill.floodFill(x, y, gridWidth, gridHeight, boundarySet, new Set(), visited);
           if (area.size > 0) {
-            areasToFill.push(area);
+            areas.push(area);
           }
         }
       }
     }
 
-    // Fill areas that don't contain enemies
-    let totalFilledCells = 0;
-    areasToFill.forEach(area => {
+    // Determine which areas to fill based on enemy positions
+    let totalNewlyFilledCells = 0;
+    
+    // Check each area to see if it contains enemies
+    areas.forEach(area => {
       const hasEnemy = gameState.enemies.some(enemy => {
         const enemyGridX = Math.floor(enemy.x / this.gridSize);
         const enemyGridY = Math.floor(enemy.y / this.gridSize);
         return area.has(`${enemyGridX},${enemyGridY}`);
       });
 
+      // Fill areas that don't contain enemies
       if (!hasEnemy) {
         area.forEach(cell => {
-          gameState.filledCells.add(cell);
-          totalFilledCells++;
+          if (!gameState.filledCells.has(cell)) {
+            gameState.filledCells.add(cell);
+            totalNewlyFilledCells++;
+          }
         });
       }
     });
 
+    // Add trail cells to filled cells
+    trailSet.forEach(cell => {
+      if (!gameState.filledCells.has(cell)) {
+        gameState.filledCells.add(cell);
+        totalNewlyFilledCells++;
+      }
+    });
+
     // Add score for newly filled cells
-    gameState.score += totalFilledCells * 10;
+    gameState.score += totalNewlyFilledCells * 10;
 
     // Update area filled percentage
     const totalCells = gridWidth * gridHeight;
