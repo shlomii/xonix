@@ -1,4 +1,3 @@
-
 import { GameState } from '../../types/game';
 
 export class EnemyPhysics {
@@ -8,6 +7,13 @@ export class EnemyPhysics {
   private accelerationTimers: Map<number, number> = new Map();
   private baseVelocities: Map<number, {vx: number, vy: number}> = new Map();
   private momentumFactors: Map<number, number> = new Map();
+  private beeState: Map<number, {
+    targetX: number;
+    targetY: number;
+    wanderAngle: number;
+    seekIntensity: number;
+    lastPlayerDistance: number;
+  }> = new Map();
   
   // Enhanced physics constants
   private readonly ACCELERATION_FACTOR = 2.2;
@@ -20,6 +26,15 @@ export class EnemyPhysics {
   private readonly MOMENTUM_DECAY = 0.98;
   private readonly WALL_BOUNCE_ENERGY_LOSS = 0.85;
   private readonly FILLED_BOUNCE_ENERGY_GAIN = 1.15;
+  
+  // Bee behavior constants
+  private readonly PLAYER_ATTRACTION_FORCE = 0.15;
+  private readonly WANDER_FORCE = 0.08;
+  private readonly SEPARATION_FORCE = 0.12;
+  private readonly SEEK_RADIUS = 200;
+  private readonly WANDER_RADIUS = 30;
+  private readonly CURVE_SMOOTHING = 0.15;
+  private readonly DIRECTION_CHANGE_RATE = 0.02;
 
   constructor(gridSize: number, canvasWidth: number, canvasHeight: number) {
     this.gridSize = gridSize;
@@ -33,14 +48,25 @@ export class EnemyPhysics {
     const currentTime = Date.now();
 
     gameState.enemies.forEach((enemy, index) => {
+      // Initialize bee state for new enemies
+      if (!this.beeState.has(index)) {
+        this.beeState.set(index, {
+          targetX: enemy.x,
+          targetY: enemy.y,
+          wanderAngle: Math.random() * Math.PI * 2,
+          seekIntensity: 0.5 + Math.random() * 0.5,
+          lastPlayerDistance: 0
+        });
+      }
+
       // Initialize base velocity and momentum for new enemies
       if (!this.baseVelocities.has(index)) {
         this.baseVelocities.set(index, { vx: enemy.vx, vy: enemy.vy });
         this.momentumFactors.set(index, 1.0);
       }
 
-      // Apply physics-based movement variations
-      this.applyPhysicsVariations(enemy, index);
+      // Apply bee-like intelligent movement
+      this.applyBeeMovement(enemy, index, gameState.player, gameState.enemies);
 
       // Handle acceleration/deceleration cycles
       this.handleAccelerationCycle(enemy, index, currentTime);
@@ -63,13 +89,140 @@ export class EnemyPhysics {
     });
   }
 
-  private applyPhysicsVariations(enemy: { vx: number; vy: number }, index: number) {
-    // Add subtle random variations to simulate air currents and imperfections
-    const timeVariation = Math.sin(Date.now() * 0.001 + index) * 0.05;
-    const randomVariation = (Math.random() - 0.5) * this.BASE_SPEED_VARIATION * 0.1;
+  private applyBeeMovement(
+    enemy: { vx: number; vy: number; x: number; y: number }, 
+    index: number, 
+    player: { x: number; y: number },
+    allEnemies: Array<{ x: number; y: number }>
+  ) {
+    const beeState = this.beeState.get(index)!;
     
-    enemy.vx += timeVariation + randomVariation;
-    enemy.vy += timeVariation * 0.7 + randomVariation * 0.8;
+    // Calculate forces
+    const playerForce = this.calculatePlayerAttraction(enemy, player, beeState);
+    const wanderForce = this.calculateWanderForce(enemy, beeState);
+    const separationForce = this.calculateSeparationForce(enemy, allEnemies, index);
+    
+    // Combine forces with different weights based on situation
+    const distanceToPlayer = Math.sqrt(
+      Math.pow(enemy.x - player.x, 2) + Math.pow(enemy.y - player.y, 2)
+    );
+    
+    // Adjust behavior based on distance to player
+    let playerWeight = beeState.seekIntensity;
+    let wanderWeight = 1.0 - beeState.seekIntensity * 0.7;
+    let separationWeight = 0.8;
+    
+    // Increase player attraction when close
+    if (distanceToPlayer < this.SEEK_RADIUS) {
+      playerWeight *= 1.5;
+      wanderWeight *= 0.5;
+    }
+    
+    // Apply adaptive behavior - if getting closer to player, increase attraction
+    if (distanceToPlayer < beeState.lastPlayerDistance) {
+      playerWeight *= 1.2;
+    }
+    beeState.lastPlayerDistance = distanceToPlayer;
+    
+    // Apply forces with smooth curves
+    const desiredVx = (playerForce.x * playerWeight + wanderForce.x * wanderWeight + separationForce.x * separationWeight);
+    const desiredVy = (playerForce.y * playerWeight + wanderForce.y * wanderWeight + separationForce.y * separationWeight);
+    
+    // Smooth steering using interpolation for curved movement
+    enemy.vx += (desiredVx - enemy.vx) * this.CURVE_SMOOTHING;
+    enemy.vy += (desiredVy - enemy.vy) * this.CURVE_SMOOTHING;
+    
+    // Add organic variations to simulate bee-like buzzing
+    const buzzVariation = Math.sin(Date.now() * 0.01 + index * 2) * 0.3;
+    const buzzVariation2 = Math.cos(Date.now() * 0.007 + index * 1.5) * 0.2;
+    
+    enemy.vx += buzzVariation;
+    enemy.vy += buzzVariation2;
+    
+    // Update wander angle for next frame
+    beeState.wanderAngle += (Math.random() - 0.5) * this.DIRECTION_CHANGE_RATE;
+  }
+
+  private calculatePlayerAttraction(
+    enemy: { x: number; y: number }, 
+    player: { x: number; y: number },
+    beeState: { seekIntensity: number }
+  ): { x: number; y: number } {
+    const dx = player.x - enemy.x;
+    const dy = player.y - enemy.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    if (distance === 0) return { x: 0, y: 0 };
+    
+    // Normalize and apply attraction force
+    const normalizedX = dx / distance;
+    const normalizedY = dy / distance;
+    
+    // Apply inverse square law for more realistic attraction (but capped)
+    const attractionStrength = Math.min(this.PLAYER_ATTRACTION_FORCE / (distance * 0.01), this.PLAYER_ATTRACTION_FORCE * 3);
+    
+    return {
+      x: normalizedX * attractionStrength * beeState.seekIntensity,
+      y: normalizedY * attractionStrength * beeState.seekIntensity
+    };
+  }
+
+  private calculateWanderForce(
+    enemy: { x: number; y: number; vx: number; vy: number },
+    beeState: { wanderAngle: number; targetX: number; targetY: number }
+  ): { x: number; y: number } {
+    // Create a circular wander target ahead of the enemy
+    const wanderDistance = 50;
+    const centerX = enemy.x + enemy.vx * wanderDistance;
+    const centerY = enemy.y + enemy.vy * wanderDistance;
+    
+    const targetX = centerX + Math.cos(beeState.wanderAngle) * this.WANDER_RADIUS;
+    const targetY = centerY + Math.sin(beeState.wanderAngle) * this.WANDER_RADIUS;
+    
+    const dx = targetX - enemy.x;
+    const dy = targetY - enemy.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    if (distance === 0) return { x: 0, y: 0 };
+    
+    return {
+      x: (dx / distance) * this.WANDER_FORCE,
+      y: (dy / distance) * this.WANDER_FORCE
+    };
+  }
+
+  private calculateSeparationForce(
+    enemy: { x: number; y: number },
+    allEnemies: Array<{ x: number; y: number }>,
+    currentIndex: number
+  ): { x: number; y: number } {
+    let separationX = 0;
+    let separationY = 0;
+    let neighborCount = 0;
+    const separationRadius = 40;
+    
+    allEnemies.forEach((otherEnemy, index) => {
+      if (index === currentIndex) return;
+      
+      const dx = enemy.x - otherEnemy.x;
+      const dy = enemy.y - otherEnemy.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distance > 0 && distance < separationRadius) {
+        // Add separation force (stronger when closer)
+        const separationStrength = (separationRadius - distance) / separationRadius;
+        separationX += (dx / distance) * separationStrength;
+        separationY += (dy / distance) * separationStrength;
+        neighborCount++;
+      }
+    });
+    
+    if (neighborCount > 0) {
+      separationX = (separationX / neighborCount) * this.SEPARATION_FORCE;
+      separationY = (separationY / neighborCount) * this.SEPARATION_FORCE;
+    }
+    
+    return { x: separationX, y: separationY };
   }
 
   private handleAccelerationCycle(enemy: { vx: number; vy: number }, index: number, currentTime: number) {
@@ -107,7 +260,6 @@ export class EnemyPhysics {
   }
 
   private applyFriction(enemy: { vx: number; vy: number }) {
-    // Simulate air resistance
     enemy.vx *= this.FRICTION_FACTOR;
     enemy.vy *= this.FRICTION_FACTOR;
   }
@@ -116,13 +268,13 @@ export class EnemyPhysics {
     let wallBounce = false;
     
     if (enemy.x <= 0 || enemy.x >= this.canvasWidth - this.gridSize) {
-      enemy.vx = -enemy.vx * this.WALL_BOUNCE_ENERGY_LOSS; // Energy loss on wall bounce
+      enemy.vx = -enemy.vx * this.WALL_BOUNCE_ENERGY_LOSS;
       enemy.x = Math.max(0, Math.min(this.canvasWidth - this.gridSize, enemy.x));
       wallBounce = true;
     }
     
     if (enemy.y <= 0 || enemy.y >= this.canvasHeight - this.gridSize) {
-      enemy.vy = -enemy.vy * this.WALL_BOUNCE_ENERGY_LOSS; // Energy loss on wall bounce
+      enemy.vy = -enemy.vy * this.WALL_BOUNCE_ENERGY_LOSS;
       enemy.y = Math.max(0, Math.min(this.canvasHeight - this.gridSize, enemy.y));
       wallBounce = true;
     }
@@ -133,7 +285,7 @@ export class EnemyPhysics {
       enemy.vx *= randomFactor;
       enemy.vy *= randomFactor * 0.95;
       
-      this.accelerateEnemy(enemy, index, currentTime, 0.8); // Moderate acceleration for walls
+      this.accelerateEnemy(enemy, index, currentTime, 0.8);
     }
   }
 
@@ -148,16 +300,12 @@ export class EnemyPhysics {
     const gridX = Math.floor(enemy.x / this.gridSize);
     const gridY = Math.floor(enemy.y / this.gridSize);
     
-    // Check if it's a border cell
     const isBorderCell = gridX === 0 || gridX === gridWidth - 1 || gridY === 0 || gridY === gridHeight - 1;
     
-    // Only bounce off filled cells that are NOT border cells
     if (!isBorderCell && gameState.filledCells.has(`${gridX},${gridY}`)) {
-      // More dynamic bounce with energy gain
       enemy.vx = -enemy.vx * this.FILLED_BOUNCE_ENERGY_GAIN;
       enemy.vy = -enemy.vy * this.FILLED_BOUNCE_ENERGY_GAIN;
       
-      // Add angular variation to make bounces less predictable
       const angleVariation = (Math.random() - 0.5) * 0.3;
       const cos = Math.cos(angleVariation);
       const sin = Math.sin(angleVariation);
@@ -167,22 +315,19 @@ export class EnemyPhysics {
       enemy.vx = newVx;
       enemy.vy = newVy;
       
-      this.accelerateEnemy(enemy, index, currentTime, 1.2); // Strong acceleration for filled areas
+      this.accelerateEnemy(enemy, index, currentTime, 1.2);
     }
   }
 
   private accelerateEnemy(enemy: { vx: number; vy: number }, index: number, currentTime: number, intensityFactor: number = 1.0) {
     const currentSpeed = Math.sqrt(enemy.vx * enemy.vx + enemy.vy * enemy.vy);
     
-    // Don't accelerate if already at max speed
     if (currentSpeed >= this.MAX_SPEED) return;
     
-    // Apply acceleration with intensity factor
     const accelerationFactor = this.ACCELERATION_FACTOR * intensityFactor;
     enemy.vx *= accelerationFactor;
     enemy.vy *= accelerationFactor;
     
-    // Cap the speed to maximum
     const newSpeed = Math.sqrt(enemy.vx * enemy.vx + enemy.vy * enemy.vy);
     if (newSpeed > this.MAX_SPEED) {
       const speedRatio = this.MAX_SPEED / newSpeed;
@@ -190,23 +335,20 @@ export class EnemyPhysics {
       enemy.vy *= speedRatio;
     }
     
-    // Set acceleration timer and momentum for this enemy
     this.accelerationTimers.set(index, currentTime);
     const currentMomentum = this.momentumFactors.get(index) || 1.0;
-    this.momentumFactors.set(index, Math.min(currentMomentum * 1.1, 2.0)); // Build momentum up to 2x
+    this.momentumFactors.set(index, Math.min(currentMomentum * 1.1, 2.0));
   }
 
   private enforceSpeedLimits(enemy: { vx: number; vy: number }) {
     const currentSpeed = Math.sqrt(enemy.vx * enemy.vx + enemy.vy * enemy.vy);
     
-    // Ensure minimum speed
     if (currentSpeed < this.MIN_SPEED) {
       const speedRatio = this.MIN_SPEED / currentSpeed;
       enemy.vx *= speedRatio;
       enemy.vy *= speedRatio;
     }
     
-    // Ensure maximum speed (should already be handled in acceleration, but double-check)
     if (currentSpeed > this.MAX_SPEED) {
       const speedRatio = this.MAX_SPEED / currentSpeed;
       enemy.vx *= speedRatio;
