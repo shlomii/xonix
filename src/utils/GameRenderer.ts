@@ -1,4 +1,3 @@
-
 import { GameState } from '../types/game';
 
 export class GameRenderer {
@@ -22,7 +21,7 @@ export class GameRenderer {
     // Draw grid
     this.drawGrid(ctx);
 
-    // Draw filled areas
+    // Draw filled areas (including border)
     this.drawFilledAreas(ctx, gameState.filledCells);
 
     // Draw trail
@@ -34,8 +33,8 @@ export class GameRenderer {
     // Draw player
     this.drawPlayer(ctx, gameState.player);
 
-    // Draw border
-    this.drawBorder(ctx);
+    // Draw canvas boundary (just a thin outline)
+    this.drawCanvasBoundary(ctx);
   }
 
   private drawBackground(ctx: CanvasRenderingContext2D) {
@@ -71,12 +70,25 @@ export class GameRenderer {
   }
 
   private drawFilledAreas(ctx: CanvasRenderingContext2D, filledCells: Set<string>) {
-    // Pleasant purple filled areas
+    // Pleasant purple filled areas - now includes border cells
     ctx.fillStyle = 'rgba(147, 51, 234, 0.8)';
 
     filledCells.forEach(cell => {
       const [x, y] = cell.split(',').map(Number);
       ctx.fillRect(x * this.gridSize, y * this.gridSize, this.gridSize, this.gridSize);
+    });
+
+    // Add a subtle pattern to show these are safe areas
+    ctx.fillStyle = 'rgba(167, 71, 254, 0.3)';
+    filledCells.forEach(cell => {
+      const [x, y] = cell.split(',').map(Number);
+      const centerX = x * this.gridSize + this.gridSize / 2;
+      const centerY = y * this.gridSize + this.gridSize / 2;
+      
+      // Small dot pattern to indicate safety
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 2, 0, Math.PI * 2);
+      ctx.fill();
     });
   }
 
@@ -263,16 +275,13 @@ export class GameRenderer {
     ctx.fill();
   }
 
-  private drawBorder(ctx: CanvasRenderingContext2D) {
-    ctx.strokeStyle = 'rgb(34, 197, 94)';
-    ctx.lineWidth = 4;
-    ctx.shadowColor = 'rgba(34, 197, 94, 0.4)';
-    ctx.shadowBlur = 6;
+  private drawCanvasBoundary(ctx: CanvasRenderingContext2D) {
+    // Just a thin green outline to show the game boundary
+    ctx.strokeStyle = 'rgba(34, 197, 94, 0.6)';
+    ctx.lineWidth = 2;
     
     ctx.beginPath();
-    ctx.rect(2, 2, this.canvasWidth - 4, this.canvasHeight - 4);
+    ctx.rect(1, 1, this.canvasWidth - 2, this.canvasHeight - 2);
     ctx.stroke();
-    
-    ctx.shadowBlur = 0;
   }
 }
