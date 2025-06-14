@@ -119,31 +119,33 @@ export class GameRenderer {
       const playerCenterY = player.y + this.gridSize / 2;
       ctx.lineTo(playerCenterX, playerCenterY);
       
-      // If player is on border, connect to the actual border edge
-      if (playerGridX === 0) {
-        // Left border
+      // Check if player is on any border and extend line to that border
+      const isOnLeftBorder = playerGridX === 0;
+      const isOnRightBorder = playerGridX === gridWidth - 1;
+      const isOnTopBorder = playerGridY === 0;
+      const isOnBottomBorder = playerGridY === gridHeight - 1;
+      
+      if (isOnLeftBorder) {
         ctx.lineTo(0, playerCenterY);
-      } else if (playerGridX === gridWidth - 1) {
-        // Right border
+      }
+      if (isOnRightBorder) {
         ctx.lineTo(this.canvasWidth, playerCenterY);
       }
-      
-      if (playerGridY === 0) {
-        // Top border
+      if (isOnTopBorder) {
         ctx.lineTo(playerCenterX, 0);
-      } else if (playerGridY === gridHeight - 1) {
-        // Bottom border
+      }
+      if (isOnBottomBorder) {
         ctx.lineTo(playerCenterX, this.canvasHeight);
       }
       
-      // Handle corners - connect to corner if player is at corner
-      if (playerGridX === 0 && playerGridY === 0) {
+      // Handle corners - extend to actual corner point
+      if (isOnLeftBorder && isOnTopBorder) {
         ctx.lineTo(0, 0);
-      } else if (playerGridX === gridWidth - 1 && playerGridY === 0) {
+      } else if (isOnRightBorder && isOnTopBorder) {
         ctx.lineTo(this.canvasWidth, 0);
-      } else if (playerGridX === 0 && playerGridY === gridHeight - 1) {
+      } else if (isOnLeftBorder && isOnBottomBorder) {
         ctx.lineTo(0, this.canvasHeight);
-      } else if (playerGridX === gridWidth - 1 && playerGridY === gridHeight - 1) {
+      } else if (isOnRightBorder && isOnBottomBorder) {
         ctx.lineTo(this.canvasWidth, this.canvasHeight);
       }
     }
