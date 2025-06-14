@@ -14,10 +14,10 @@ export class GameRenderer {
   }
 
   render(ctx: CanvasRenderingContext2D, gameState: GameState) {
-    this.time += 0.1;
+    this.time += 0.02;
     
-    // Clear canvas with animated background
-    this.drawPsychedelicBackground(ctx);
+    // Clear canvas with smooth gradient background
+    this.drawBackground(ctx);
 
     // Draw grid
     this.drawGrid(ctx);
@@ -38,30 +38,25 @@ export class GameRenderer {
     this.drawBorder(ctx);
   }
 
-  private drawPsychedelicBackground(ctx: CanvasRenderingContext2D) {
-    // Create animated gradient background
+  private drawBackground(ctx: CanvasRenderingContext2D) {
+    // Smooth gradient background with subtle animation
     const gradient = ctx.createRadialGradient(
       this.canvasWidth / 2, this.canvasHeight / 2, 0,
       this.canvasWidth / 2, this.canvasHeight / 2, Math.max(this.canvasWidth, this.canvasHeight)
     );
     
-    const hue1 = (this.time * 20) % 360;
-    const hue2 = (this.time * 30 + 120) % 360;
-    const hue3 = (this.time * 40 + 240) % 360;
-    
-    gradient.addColorStop(0, `hsl(${hue1}, 20%, 8%)`);
-    gradient.addColorStop(0.5, `hsl(${hue2}, 25%, 12%)`);
-    gradient.addColorStop(1, `hsl(${hue3}, 30%, 6%)`);
+    const brightness = 8 + Math.sin(this.time) * 2;
+    gradient.addColorStop(0, `hsl(220, 15%, ${brightness}%)`);
+    gradient.addColorStop(0.5, `hsl(200, 20%, ${brightness + 2}%)`);
+    gradient.addColorStop(1, `hsl(240, 25%, ${brightness - 2}%)`);
     
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
   }
 
   private drawGrid(ctx: CanvasRenderingContext2D) {
-    const hue = (this.time * 50) % 360;
-    ctx.strokeStyle = `hsl(${hue}, 40%, 25%)`;
+    ctx.strokeStyle = 'rgba(100, 200, 255, 0.15)';
     ctx.lineWidth = 1;
-    ctx.globalAlpha = 0.4 + Math.sin(this.time) * 0.1;
 
     // Vertical lines
     for (let x = 0; x <= this.canvasWidth; x += this.gridSize) {
@@ -78,56 +73,48 @@ export class GameRenderer {
       ctx.lineTo(this.canvasWidth, y);
       ctx.stroke();
     }
-
-    ctx.globalAlpha = 1;
   }
 
   private drawFilledAreas(ctx: CanvasRenderingContext2D, filledCells: Set<string>) {
-    const hue = (this.time * 80 + 120) % 360;
-    ctx.fillStyle = `hsl(${hue}, 70%, 50%)`;
-    ctx.globalAlpha = 0.6 + Math.sin(this.time * 2) * 0.2;
+    // Pleasant purple filled areas
+    const alpha = 0.7 + Math.sin(this.time * 2) * 0.1;
+    ctx.fillStyle = `rgba(147, 51, 234, ${alpha})`;
 
     filledCells.forEach(cell => {
       const [x, y] = cell.split(',').map(Number);
       ctx.fillRect(x * this.gridSize, y * this.gridSize, this.gridSize, this.gridSize);
     });
-
-    ctx.globalAlpha = 1;
   }
 
   private drawTrail(ctx: CanvasRenderingContext2D, trail: Array<{x: number, y: number}>, player: {x: number, y: number}) {
     if (trail.length === 0) return;
 
-    const hue = (this.time * 100 + 60) % 360;
-    ctx.strokeStyle = `hsl(${hue}, 80%, 60%)`;
-    ctx.lineWidth = 6 + Math.sin(this.time * 3) * 2;
+    // Smooth pink trail line
+    ctx.strokeStyle = 'rgb(236, 72, 153)';
+    ctx.lineWidth = 4;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.shadowColor = `hsl(${hue}, 80%, 60%)`;
-    ctx.shadowBlur = 10;
+    ctx.shadowColor = 'rgba(236, 72, 153, 0.5)';
+    ctx.shadowBlur = 6;
 
     ctx.beginPath();
     
-    // Start from the first trail position
     if (trail.length > 0) {
       const firstPos = trail[0];
-      const centerX = firstPos.x + this.gridSize / 2;
-      const centerY = firstPos.y + this.gridSize / 2;
-      
-      // Check if first position is on border and extend line to border
       const gridX = Math.floor(firstPos.x / this.gridSize);
       const gridY = Math.floor(firstPos.y / this.gridSize);
       const gridWidth = Math.floor(this.canvasWidth / this.gridSize);
       const gridHeight = Math.floor(this.canvasHeight / this.gridSize);
       
-      let startX = centerX;
-      let startY = centerY;
+      let startX = firstPos.x + this.gridSize / 2;
+      let startY = firstPos.y + this.gridSize / 2;
       
-      // Extend to border if on border
+      // Connect to actual border edges
       if (gridX === 0) startX = 0;
-      if (gridX === gridWidth - 1) startX = this.canvasWidth;
+      else if (gridX === gridWidth - 1) startX = this.canvasWidth;
+      
       if (gridY === 0) startY = 0;
-      if (gridY === gridHeight - 1) startY = this.canvasHeight;
+      else if (gridY === gridHeight - 1) startY = this.canvasHeight;
       
       ctx.moveTo(startX, startY);
       
@@ -143,7 +130,7 @@ export class GameRenderer {
       const playerCenterY = player.y + this.gridSize / 2;
       ctx.lineTo(playerCenterX, playerCenterY);
       
-      // Check if player is on border and extend line to border
+      // Connect player to border if on edge
       const playerGridX = Math.floor(player.x / this.gridSize);
       const playerGridY = Math.floor(player.y / this.gridSize);
       
@@ -151,9 +138,10 @@ export class GameRenderer {
       let endY = playerCenterY;
       
       if (playerGridX === 0) endX = 0;
-      if (playerGridX === gridWidth - 1) endX = this.canvasWidth;
+      else if (playerGridX === gridWidth - 1) endX = this.canvasWidth;
+      
       if (playerGridY === 0) endY = 0;
-      if (playerGridY === gridHeight - 1) endY = this.canvasHeight;
+      else if (playerGridY === gridHeight - 1) endY = this.canvasHeight;
       
       if (endX !== playerCenterX || endY !== playerCenterY) {
         ctx.lineTo(endX, endY);
@@ -163,16 +151,14 @@ export class GameRenderer {
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Draw pulsing trail dots
-    const dotHue = (this.time * 120 + 180) % 360;
-    ctx.fillStyle = `hsl(${dotHue}, 90%, 70%)`;
-    trail.forEach((pos, index) => {
+    // Small trail dots
+    ctx.fillStyle = 'rgb(219, 39, 119)';
+    trail.forEach(pos => {
       const centerX = pos.x + this.gridSize / 2;
       const centerY = pos.y + this.gridSize / 2;
-      const pulse = Math.sin(this.time * 4 + index * 0.5) * 2 + 4;
       
       ctx.beginPath();
-      ctx.arc(centerX, centerY, pulse, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
       ctx.fill();
     });
   }
@@ -181,30 +167,27 @@ export class GameRenderer {
     enemies.forEach((enemy, index) => {
       const centerX = enemy.x + this.gridSize / 2;
       const centerY = enemy.y + this.gridSize / 2;
-      const pulse = Math.sin(this.time * 3 + index) * 0.3 + 1;
+      const pulse = Math.sin(this.time * 4 + index) * 0.15 + 1;
       
-      // Draw enemy glow with rainbow effect
-      const hue = (this.time * 150 + index * 60) % 360;
-      ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
-      ctx.globalAlpha = 0.4;
-      ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
-      ctx.shadowBlur = 20;
+      // Enemy glow
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
+      ctx.shadowColor = 'rgba(239, 68, 68, 0.6)';
+      ctx.shadowBlur = 12;
       ctx.beginPath();
-      ctx.arc(centerX, centerY, this.gridSize * 0.8 * pulse, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, this.gridSize * 0.7 * pulse, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
       
-      // Draw enemy core
-      ctx.fillStyle = `hsl(${(hue + 180) % 360}, 80%, 40%)`;
-      ctx.globalAlpha = 1;
+      // Enemy core
+      ctx.fillStyle = 'rgb(220, 38, 38)';
       ctx.beginPath();
-      ctx.arc(centerX, centerY, this.gridSize * 0.4 * pulse, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, this.gridSize * 0.35 * pulse, 0, Math.PI * 2);
       ctx.fill();
       
-      // Draw enemy highlight
-      ctx.fillStyle = `hsl(${hue}, 100%, 80%)`;
+      // Enemy highlight
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
       ctx.beginPath();
-      ctx.arc(centerX - 2, centerY - 2, this.gridSize * 0.15 * pulse, 0, Math.PI * 2);
+      ctx.arc(centerX - 2, centerY - 2, this.gridSize * 0.12 * pulse, 0, Math.PI * 2);
       ctx.fill();
     });
   }
@@ -212,47 +195,40 @@ export class GameRenderer {
   private drawPlayer(ctx: CanvasRenderingContext2D, player: {x: number, y: number}) {
     const centerX = player.x + this.gridSize / 2;
     const centerY = player.y + this.gridSize / 2;
-    const pulse = Math.sin(this.time * 4) * 0.2 + 1;
+    const pulse = Math.sin(this.time * 6) * 0.1 + 1;
     
-    // Draw player glow
-    const hue = (this.time * 200) % 360;
-    ctx.fillStyle = `hsl(${hue}, 80%, 60%)`;
-    ctx.globalAlpha = 0.6;
-    ctx.shadowColor = `hsl(${hue}, 80%, 60%)`;
-    ctx.shadowBlur = 15;
+    // Player glow
+    ctx.fillStyle = 'rgba(34, 197, 94, 0.5)';
+    ctx.shadowColor = 'rgba(34, 197, 94, 0.7)';
+    ctx.shadowBlur = 10;
     ctx.beginPath();
-    ctx.arc(centerX, centerY, this.gridSize * 0.8 * pulse, 0, Math.PI * 2);
+    ctx.arc(centerX, centerY, this.gridSize * 0.7 * pulse, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
     
-    // Draw player body
-    ctx.fillStyle = `hsl(${(hue + 60) % 360}, 70%, 50%)`;
-    ctx.globalAlpha = 1;
+    // Player body
+    ctx.fillStyle = 'rgb(22, 163, 74)';
     ctx.beginPath();
-    ctx.arc(centerX, centerY, this.gridSize * 0.4 * pulse, 0, Math.PI * 2);
+    ctx.arc(centerX, centerY, this.gridSize * 0.35 * pulse, 0, Math.PI * 2);
     ctx.fill();
     
-    // Draw player highlight
-    ctx.fillStyle = `hsl(${hue}, 90%, 80%)`;
+    // Player highlight
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
     ctx.beginPath();
-    ctx.arc(centerX - 2, centerY - 2, this.gridSize * 0.15 * pulse, 0, Math.PI * 2);
+    ctx.arc(centerX - 2, centerY - 2, this.gridSize * 0.12 * pulse, 0, Math.PI * 2);
     ctx.fill();
   }
 
   private drawBorder(ctx: CanvasRenderingContext2D) {
-    const hue = (this.time * 100) % 360;
-    ctx.strokeStyle = `hsl(${hue}, 80%, 60%)`;
-    ctx.lineWidth = 6 + Math.sin(this.time * 2) * 2;
-    ctx.setLineDash([10, 5]);
-    ctx.lineDashOffset = this.time * 10;
-    ctx.shadowColor = `hsl(${hue}, 80%, 60%)`;
-    ctx.shadowBlur = 10;
+    ctx.strokeStyle = 'rgb(34, 197, 94)';
+    ctx.lineWidth = 4;
+    ctx.shadowColor = 'rgba(34, 197, 94, 0.5)';
+    ctx.shadowBlur = 8;
     
     ctx.beginPath();
-    ctx.rect(0, 0, this.canvasWidth, this.canvasHeight);
+    ctx.rect(2, 2, this.canvasWidth - 4, this.canvasHeight - 4);
     ctx.stroke();
     
     ctx.shadowBlur = 0;
-    ctx.setLineDash([]);
   }
 }
