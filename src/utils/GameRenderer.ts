@@ -1,3 +1,4 @@
+
 import { GameState } from '../types/game';
 
 export class GameRenderer {
@@ -104,21 +105,44 @@ export class GameRenderer {
       const firstGridX = Math.floor(firstPos.x / this.gridSize);
       const firstGridY = Math.floor(firstPos.y / this.gridSize);
       
-      // Check if first position is on border and start from border edge
-      let startX = firstPos.x + this.gridSize / 2;
-      let startY = firstPos.y + this.gridSize / 2;
+      // Determine where to start the line based on the first trail position
+      let startX, startY;
       
-      // If first trail position is on a border, start from the border edge
-      if (firstGridX === 0) {
-        startX = 0; // Left border
-      } else if (firstGridX === gridWidth - 1) {
-        startX = this.canvasWidth; // Right border
-      }
+      // Check if first trail position is adjacent to a border
+      const isAdjacentToLeftBorder = firstGridX === 1;
+      const isAdjacentToRightBorder = firstGridX === gridWidth - 2;
+      const isAdjacentToTopBorder = firstGridY === 1;
+      const isAdjacentToBottomBorder = firstGridY === gridHeight - 2;
       
-      if (firstGridY === 0) {
-        startY = 0; // Top border
-      } else if (firstGridY === gridHeight - 1) {
-        startY = this.canvasHeight; // Bottom border
+      // Start from the appropriate border edge if the trail begins adjacent to border
+      if (isAdjacentToLeftBorder && !isAdjacentToTopBorder && !isAdjacentToBottomBorder) {
+        startX = 0;
+        startY = firstPos.y + this.gridSize / 2;
+      } else if (isAdjacentToRightBorder && !isAdjacentToTopBorder && !isAdjacentToBottomBorder) {
+        startX = this.canvasWidth;
+        startY = firstPos.y + this.gridSize / 2;
+      } else if (isAdjacentToTopBorder && !isAdjacentToLeftBorder && !isAdjacentToRightBorder) {
+        startX = firstPos.x + this.gridSize / 2;
+        startY = 0;
+      } else if (isAdjacentToBottomBorder && !isAdjacentToLeftBorder && !isAdjacentToRightBorder) {
+        startX = firstPos.x + this.gridSize / 2;
+        startY = this.canvasHeight;
+      } else if (isAdjacentToLeftBorder && isAdjacentToTopBorder) {
+        startX = 0;
+        startY = 0;
+      } else if (isAdjacentToRightBorder && isAdjacentToTopBorder) {
+        startX = this.canvasWidth;
+        startY = 0;
+      } else if (isAdjacentToLeftBorder && isAdjacentToBottomBorder) {
+        startX = 0;
+        startY = this.canvasHeight;
+      } else if (isAdjacentToRightBorder && isAdjacentToBottomBorder) {
+        startX = this.canvasWidth;
+        startY = this.canvasHeight;
+      } else {
+        // Default to center of first trail position
+        startX = firstPos.x + this.gridSize / 2;
+        startY = firstPos.y + this.gridSize / 2;
       }
       
       ctx.moveTo(startX, startY);
@@ -128,11 +152,6 @@ export class GameRenderer {
         const pos = trail[i];
         const centerX = pos.x + this.gridSize / 2;
         const centerY = pos.y + this.gridSize / 2;
-        
-        if (i === 0) {
-          // Skip the first position since we already moved to it
-          continue;
-        }
         
         ctx.lineTo(centerX, centerY);
       }
