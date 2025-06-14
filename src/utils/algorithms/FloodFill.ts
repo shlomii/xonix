@@ -16,14 +16,20 @@ export class FloodFill {
       const { x, y } = stack.pop()!;
       const key = `${x},${y}`;
 
+      // Check bounds
       if (x < 0 || x >= gridWidth || y < 0 || y >= gridHeight) continue;
+      
+      // Skip if already visited
       if (visited.has(key)) continue;
+      
+      // Skip if it's a boundary (filled cell, trail cell, or border)
       if (boundarySet.has(key)) continue;
 
+      // Mark as visited and add to area
       visited.add(key);
       area.add(key);
 
-      // Add neighbors to stack
+      // Add all 4 neighbors to stack
       stack.push({ x: x + 1, y });
       stack.push({ x: x - 1, y });
       stack.push({ x, y: y + 1 });

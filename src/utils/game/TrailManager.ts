@@ -61,15 +61,32 @@ export class TrailManager {
     const playerGridY = Math.floor(gameState.player.y / this.gridSize);
     trailSet.add(`${playerGridX},${playerGridY}`);
 
-    // Create combined set of filled cells and trail for boundary detection
-    const boundarySet = new Set([...gameState.filledCells, ...trailSet]);
+    // First, add all trail cells to filled cells immediately
+    trailSet.forEach(cell => gameState.filledCells.add(cell));
 
-    // Use flood fill to find areas to fill
+    // Create boundary set including borders, filled cells, and trail
+    const boundarySet = new Set<string>();
+    
+    // Add border cells
+    for (let x = 0; x < gridWidth; x++) {
+      boundarySet.add(`${x},0`); // Top border
+      boundarySet.add(`${x},${gridHeight - 1}`); // Bottom border
+    }
+    for (let y = 0; y < gridHeight; y++) {
+      boundarySet.add(`0,${y}`); // Left border
+      boundarySet.add(`${gridWidth - 1},${y}`); // Right border
+    }
+    
+    // Add filled cells and trail to boundary
+    gameState.filledCells.forEach(cell => boundarySet.add(cell));
+
+    // Use flood fill to find empty areas
     const visited = new Set<string>();
     const areasToFill: Set<string>[] = [];
 
-    for (let x = 0; x < gridWidth; x++) {
-      for (let y = 0; y < gridHeight; y++) {
+    // Check all interior cells (not on the border)
+    for (let x = 1; x < gridWidth - 1; x++) {
+      for (let y = 1; y < gridHeight - 1; y++) {
         const key = `${x},${y}`;
         if (!visited.has(key) && !boundarySet.has(key)) {
           const area = this.floodFill.floodFill(x, y, gridWidth, gridHeight, boundarySet, new Set(), visited);
@@ -80,7 +97,8 @@ export class TrailManager {
       }
     }
 
-    // Fill the smaller areas (areas that don't contain enemies)
+    // Fill areas that don't contain enemies
+    let totalFilledCells = 0;
     areasToFill.forEach(area => {
       const hasEnemy = gameState.enemies.some(enemy => {
         const enemyGridX = Math.floor(enemy.x / this.gridSize);
@@ -89,13 +107,15 @@ export class TrailManager {
       });
 
       if (!hasEnemy) {
-        area.forEach(cell => gameState.filledCells.add(cell));
-        gameState.score += area.size * 10;
+        area.forEach(cell => {
+          gameState.filledCells.add(cell);
+          totalFilledCells++;
+        });
       }
     });
 
-    // Add trail to filled cells
-    trailSet.forEach(cell => gameState.filledCells.add(cell));
+    // Add score for newly filled cells
+    gameState.score += totalFilledCells * 10;
 
     // Update area filled percentage
     const totalCells = gridWidth * gridHeight;
