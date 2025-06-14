@@ -99,18 +99,41 @@ export class GameRenderer {
     ctx.beginPath();
     
     if (trail.length > 0) {
-      // Start from the center of the first trail cell
+      // Get the first trail position
       const firstPos = trail[0];
+      const firstGridX = Math.floor(firstPos.x / this.gridSize);
+      const firstGridY = Math.floor(firstPos.y / this.gridSize);
+      
+      // Check if first position is on border and start from border edge
       let startX = firstPos.x + this.gridSize / 2;
       let startY = firstPos.y + this.gridSize / 2;
+      
+      // If first trail position is on a border, start from the border edge
+      if (firstGridX === 0) {
+        startX = 0; // Left border
+      } else if (firstGridX === gridWidth - 1) {
+        startX = this.canvasWidth; // Right border
+      }
+      
+      if (firstGridY === 0) {
+        startY = 0; // Top border
+      } else if (firstGridY === gridHeight - 1) {
+        startY = this.canvasHeight; // Bottom border
+      }
       
       ctx.moveTo(startX, startY);
       
       // Draw through all trail positions
-      for (let i = 1; i < trail.length; i++) {
+      for (let i = 0; i < trail.length; i++) {
         const pos = trail[i];
         const centerX = pos.x + this.gridSize / 2;
         const centerY = pos.y + this.gridSize / 2;
+        
+        if (i === 0) {
+          // Skip the first position since we already moved to it
+          continue;
+        }
+        
         ctx.lineTo(centerX, centerY);
       }
       
