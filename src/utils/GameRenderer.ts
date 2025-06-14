@@ -12,6 +12,12 @@ export class GameRenderer {
     this.canvasHeight = canvasHeight;
   }
 
+  // Update dimensions when canvas size changes
+  updateDimensions(canvasWidth: number, canvasHeight: number) {
+    this.canvasWidth = canvasWidth;
+    this.canvasHeight = canvasHeight;
+  }
+
   render(ctx: CanvasRenderingContext2D, gameState: GameState) {
     this.time += 0.02;
     
