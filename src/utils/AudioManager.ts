@@ -157,6 +157,117 @@ export class AudioManager {
     osc.stop(now + 0.15);
   }
 
+  // Bomb collection sound - satisfying pickup
+  playBombCollect() {
+    if (!this.isEnabled || !this.audioContext) return;
+
+    const ctx = this.audioContext;
+    const now = ctx.currentTime;
+    
+    // Pleasant collection sound with rising pitch
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(600, now);
+    osc.frequency.exponentialRampToValueAtTime(1200, now + 0.2);
+    gain.gain.setValueAtTime(0.15 * this.volume, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+    
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.25);
+  }
+
+  // Magnetic bomb sound - ominous humming
+  playBombMagnetic() {
+    if (!this.isEnabled || !this.audioContext) return;
+
+    const ctx = this.audioContext;
+    const now = ctx.currentTime;
+    
+    // Low frequency magnetic hum with modulation
+    const osc = ctx.createOscillator();
+    const modOsc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const modGain = ctx.createGain();
+    
+    osc.type = 'sawtooth';
+    modOsc.type = 'sine';
+    
+    osc.frequency.setValueAtTime(80, now);
+    modOsc.frequency.setValueAtTime(4, now); // 4Hz modulation
+    modGain.gain.setValueAtTime(20, now); // Modulation depth
+    
+    gain.gain.setValueAtTime(0.1 * this.volume, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 2);
+    
+    modOsc.connect(modGain);
+    modGain.connect(osc.frequency);
+    osc.connect(gain).connect(ctx.destination);
+    
+    modOsc.start(now);
+    osc.start(now);
+    modOsc.stop(now + 2);
+    osc.stop(now + 2);
+  }
+
+  // Bomb explosion sound - dramatic boom
+  playBombExplosion() {
+    if (!this.isEnabled || !this.audioContext) return;
+
+    const ctx = this.audioContext;
+    const now = ctx.currentTime;
+    
+    // Layer 1: Deep bass thump
+    const bassOsc = ctx.createOscillator();
+    const bassGain = ctx.createGain();
+    bassOsc.type = 'sine';
+    bassOsc.frequency.setValueAtTime(60, now);
+    bassOsc.frequency.exponentialRampToValueAtTime(30, now + 0.5);
+    bassGain.gain.setValueAtTime(0.4 * this.volume, now);
+    bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+    bassOsc.connect(bassGain).connect(ctx.destination);
+    bassOsc.start(now);
+    bassOsc.stop(now + 0.8);
+
+    // Layer 2: Explosive burst (white noise)
+    const bufferSize = ctx.sampleRate * 0.3;
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize); // Fade out
+    }
+    
+    const noiseSource = ctx.createBufferSource();
+    const noiseGain = ctx.createGain();
+    const noiseFilter = ctx.createBiquadFilter();
+    
+    noiseSource.buffer = noiseBuffer;
+    noiseFilter.type = 'lowpass';
+    noiseFilter.frequency.setValueAtTime(2000, now);
+    noiseFilter.frequency.exponentialRampToValueAtTime(200, now + 0.3);
+    noiseGain.gain.setValueAtTime(0.2 * this.volume, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+    
+    noiseSource.connect(noiseFilter).connect(noiseGain).connect(ctx.destination);
+    noiseSource.start(now);
+    noiseSource.stop(now + 0.3);
+
+    // Layer 3: Satisfying explosion ding
+    const dingOsc = ctx.createOscillator();
+    const dingGain = ctx.createGain();
+    dingOsc.type = 'triangle';
+    dingOsc.frequency.setValueAtTime(800, now + 0.1);
+    dingOsc.frequency.exponentialRampToValueAtTime(400, now + 0.6);
+    dingGain.gain.setValueAtTime(0.15 * this.volume, now + 0.1);
+    dingGain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    dingOsc.connect(dingGain).connect(ctx.destination);
+    dingOsc.start(now + 0.1);
+    dingOsc.stop(now + 0.6);
+  }
+
   // Level transition fanfare
   playLevelTransition() {
     if (!this.isEnabled || !this.audioContext) return;

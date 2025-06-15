@@ -48,7 +48,8 @@ const XonixGame: React.FC = () => {
     keys: new Set(),
     level: 1,
     enemyCount: 1,
-    isLevelTransition: false
+    isLevelTransition: false,
+    surprises: [] // Add surprises array
   });
 
   const gameLogic = useRef<GameLogic>();
@@ -108,7 +109,8 @@ const XonixGame: React.FC = () => {
       isAlive: true,
       level: 1,
       enemyCount: 1,
-      isLevelTransition: false
+      isLevelTransition: false,
+      surprises: [] // Reset surprises
     }));
   }, [calculateCanvasSize]);
 
@@ -351,7 +353,8 @@ const XonixGame: React.FC = () => {
       keys: new Set(),
       level: 1,
       enemyCount: 1,
-      isLevelTransition: false
+      isLevelTransition: false,
+      surprises: [] // Reset surprises
     });
     
     setShowHighScoreEntry(false);

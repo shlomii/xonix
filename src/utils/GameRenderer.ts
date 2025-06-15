@@ -1,4 +1,4 @@
-import { GameState } from '../types/game';
+import { GameState, Surprise } from '../types/game';
 
 export class GameRenderer {
   private gridSize: number;
@@ -37,6 +37,9 @@ export class GameRenderer {
     // Draw trail
     this.drawTrail(ctx, gameState.trail, gameState.player, gameState.filledCells);
 
+    // Draw surprises (bombs)
+    this.drawSurprises(ctx, gameState.surprises);
+
     // Draw enemies
     this.drawEnemies(ctx, gameState.enemies);
 
@@ -45,6 +48,134 @@ export class GameRenderer {
 
     // Draw canvas boundary (just a thin outline)
     this.drawCanvasBoundary(ctx);
+  }
+
+  // Draw all surprises
+  private drawSurprises(ctx: CanvasRenderingContext2D, surprises: Surprise[]) {
+    surprises.forEach(surprise => {
+      if (surprise.type === 'timeBomb') {
+        this.drawTimeBomb(ctx, surprise);
+      }
+    });
+  }
+
+  private drawTimeBomb(ctx: CanvasRenderingContext2D, bomb: Surprise) {
+    const centerX = bomb.x + this.gridSize / 2;
+    const centerY = bomb.y + this.gridSize / 2;
+    
+    if (bomb.state === 'inactive') {
+      // Inactive bomb - gentle orange glow with bomb icon
+      const pulse = Math.sin(this.time * 2) * 0.1 + 1;
+      
+      // Glow effect
+      const glowGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, this.gridSize * 0.6 * pulse);
+      glowGradient.addColorStop(0, 'rgba(251, 146, 60, 0.4)');
+      glowGradient.addColorStop(0.7, 'rgba(251, 146, 60, 0.2)');
+      glowGradient.addColorStop(1, 'rgba(251, 146, 60, 0)');
+      
+      ctx.fillStyle = glowGradient;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, this.gridSize * 0.6 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Bomb body
+      ctx.fillStyle = '#1f2937'; // Dark gray
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, this.gridSize * 0.25, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Bomb highlight
+      ctx.fillStyle = '#4b5563';
+      ctx.beginPath();
+      ctx.arc(centerX - 2, centerY - 2, this.gridSize * 0.1, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Fuse
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(centerX + this.gridSize * 0.2, centerY - this.gridSize * 0.2);
+      ctx.lineTo(centerX + this.gridSize * 0.35, centerY - this.gridSize * 0.35);
+      ctx.stroke();
+      
+    } else if (bomb.state === 'activated') {
+      // Just activated - brighter glow, preparing for magnetic phase
+      const pulse = Math.sin(this.time * 4) * 0.2 + 1;
+      
+      const glowGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, this.gridSize * 0.8 * pulse);
+      glowGradient.addColorStop(0, 'rgba(239, 68, 68, 0.6)');
+      glowGradient.addColorStop(0.5, 'rgba(239, 68, 68, 0.3)');
+      glowGradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
+      
+      ctx.fillStyle = glowGradient;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, this.gridSize * 0.8 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Bomb body (now red)
+      ctx.fillStyle = '#dc2626';
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, this.gridSize * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      
+    } else if (bomb.state === 'magnetic') {
+      // Magnetic bomb - intense effects
+      const pulse = Math.sin(this.time * 6) * 0.3 + 1;
+      const timerProgress = bomb.timer / bomb.maxTimer;
+      
+      // Intense magnetic field glow
+      const magneticGlow = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, this.gridSize * 1.2 * pulse);
+      magneticGlow.addColorStop(0, 'rgba(220, 38, 38, 0.8)');
+      magneticGlow.addColorStop(0.3, 'rgba(220, 38, 38, 0.4)');
+      magneticGlow.addColorStop(0.7, 'rgba(148, 163, 184, 0.2)'); // Magnetic field color
+      magneticGlow.addColorStop(1, 'rgba(148, 163, 184, 0)');
+      
+      ctx.fillStyle = magneticGlow;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, this.gridSize * 1.2 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Draw magnetic field lines
+      this.drawMagneticField(ctx, centerX, centerY, this.gridSize * 0.8 * pulse);
+      
+      // Bomb core - more intense
+      const coreSize = this.gridSize * (0.35 + timerProgress * 0.15); // Grows as timer progresses
+      ctx.fillStyle = '#fee2e2';
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, coreSize, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.fillStyle = '#dc2626';
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, coreSize * 0.7, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Danger indicator - timer progress
+      ctx.strokeStyle = '#fef3c7';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, this.gridSize * 0.5, -Math.PI / 2, -Math.PI / 2 + (timerProgress * Math.PI * 2));
+      ctx.stroke();
+    }
+  }
+
+  private drawMagneticField(ctx: CanvasRenderingContext2D, centerX: number, centerY: number, radius: number) {
+    const numLines = 8;
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
+    ctx.lineWidth = 1;
+    
+    for (let i = 0; i < numLines; i++) {
+      const angle = (i / numLines) * Math.PI * 2;
+      const startX = centerX + Math.cos(angle) * radius * 0.6;
+      const startY = centerY + Math.sin(angle) * radius * 0.6;
+      const endX = centerX + Math.cos(angle) * radius;
+      const endY = centerY + Math.sin(angle) * radius;
+      
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+    }
   }
 
   // Make drawEnemies public for game over screen

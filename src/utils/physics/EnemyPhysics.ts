@@ -1,3 +1,4 @@
+
 import { GameState } from '../../types/game';
 
 export class EnemyPhysics {
@@ -28,7 +29,7 @@ export class EnemyPhysics {
     this.canvasHeight = canvasHeight;
   }
 
-  updateEnemies(gameState: GameState) {
+  updateEnemies(gameState: GameState, getMagneticForce?: (x: number, y: number, gameState: GameState) => {fx: number, fy: number}) {
     const gridWidth = Math.floor(this.canvasWidth / this.gridSize);
     const gridHeight = Math.floor(this.canvasHeight / this.gridSize);
     const currentTime = Date.now();
@@ -44,17 +45,40 @@ export class EnemyPhysics {
         });
       }
 
+      // Apply magnetic forces from bombs if available
+      if (getMagneticForce) {
+        const magneticForce = getMagneticForce(enemy.x, enemy.y, gameState);
+        if (Math.abs(magneticForce.fx) > 0.01 || Math.abs(magneticForce.fy) > 0.01) {
+          // Strong magnetic attraction overrides normal movement
+          enemy.vx += magneticForce.fx;
+          enemy.vy += magneticForce.fy;
+          this.accelerationTimers.set(index, currentTime);
+          
+          // Cap speed when being magnetically attracted
+          const magneticSpeed = Math.sqrt(enemy.vx * enemy.vx + enemy.vy * enemy.vy);
+          if (magneticSpeed > this.MAX_SPEED * 1.5) {
+            const speedRatio = (this.MAX_SPEED * 1.5) / magneticSpeed;
+            enemy.vx *= speedRatio;
+            enemy.vy *= speedRatio;
+          }
+        }
+      }
+
       // Apply smoother deceleration
       this.applySmoothDeceleration(enemy, index, currentTime);
 
       // Check for enemy-to-enemy collisions
       this.checkEnemyCollisions(enemy, index, gameState.enemies, currentTime);
 
-      // Apply subtle player attraction only when far away and moving slowly
-      this.applyConditionalPlayerAttraction(enemy, gameState.player, index);
-
-      // Add minimal exploration behavior when very slow
-      this.applyMinimalExploration(enemy, index, currentTime);
+      // Apply subtle player attraction only when far away and moving slowly (unless magnetically attracted)
+      const isMagneticallyAttracted = getMagneticForce && 
+        (Math.abs(getMagneticForce(enemy.x, enemy.y, gameState).fx) > 0.01 || 
+         Math.abs(getMagneticForce(enemy.x, enemy.y, gameState).fy) > 0.01);
+      
+      if (!isMagneticallyAttracted) {
+        this.applyConditionalPlayerAttraction(enemy, gameState.player, index);
+        this.applyMinimalExploration(enemy, index, currentTime);
+      }
 
       // Enhanced collision detection with filled areas
       const collisionResult = this.checkFilledAreaCollision(enemy, gameState, gridWidth, gridHeight);
