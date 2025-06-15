@@ -6,6 +6,7 @@ import { GameLogic } from '../utils/GameLogic';
 import { HighScoreManager } from '../utils/HighScoreManager';
 import HighScoreDialog from './HighScoreDialog';
 import HighScoreTable from './HighScoreTable';
+import LevelTransition from './LevelTransition';
 
 const GRID_SIZE = 15; // Grid cell size in pixels
 const ASPECT_RATIO = 4 / 3; // Width to height ratio
@@ -35,17 +36,17 @@ const XonixGame: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>({
     player: { x: 0, y: 0, vx: 0, vy: 0 },
     enemies: [
-      { x: 600, y: 300, vx: 2, vy: 1.5 },
-      { x: 900, y: 450, vx: -1.5, vy: 2 },
-      { x: 450, y: 600, vx: 1, vy: -2 },
-      { x: 750, y: 675, vx: -2, vy: -1 }
+      { x: 600, y: 450, vx: 1, vy: 0.8 }
     ],
     trail: [],
     filledCells: new Set(),
     score: 0,
     areaFilled: 0,
     isAlive: true,
-    keys: new Set()
+    keys: new Set(),
+    level: 1,
+    enemyCount: 1,
+    isLevelTransition: false
   });
 
   const gameLogic = useRef<GameLogic>();
@@ -193,16 +194,16 @@ const XonixGame: React.FC = () => {
       ...prev,
       player: { x: 0, y: 0, vx: 0, vy: 0 },
       enemies: [
-        { x: centerX - 200, y: centerY - 150, vx: 2, vy: 1.5 },
-        { x: centerX + 100, y: centerY, vx: -1.5, vy: 2 },
-        { x: centerX - 100, y: centerY + 100, vx: 1, vy: -2 },
-        { x: centerX + 150, y: centerY + 150, vx: -2, vy: -1 }
+        { x: centerX, y: centerY, vx: 1, vy: 0.8 }
       ],
       trail: [],
       filledCells: new Set(),
       score: 0,
       areaFilled: 0,
-      isAlive: true
+      isAlive: true,
+      level: 1,
+      enemyCount: 1,
+      isLevelTransition: false
     }));
   }, [calculateCanvasSize]);
 
@@ -294,36 +295,6 @@ const XonixGame: React.FC = () => {
 
   useGameLoop(updateGame, 60);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !renderer.current) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // High DPI support for crisp rendering
-    const devicePixelRatio = window.devicePixelRatio || 1;
-    const displayWidth = canvasDimensions.width;
-    const displayHeight = canvasDimensions.height;
-    
-    // Set actual canvas size for high DPI
-    canvas.width = displayWidth * devicePixelRatio;
-    canvas.height = displayHeight * devicePixelRatio;
-    
-    // Scale display size back to logical size
-    canvas.style.width = displayWidth + 'px';
-    canvas.style.height = displayHeight + 'px';
-    
-    // Scale the drawing context to match device pixel ratio
-    ctx.scale(devicePixelRatio, devicePixelRatio);
-    
-    // Enable anti-aliasing for smoother rendering
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-
-    renderer.current.render(ctx, gameState);
-  }, [gameState, canvasDimensions]);
-
   // Render game over enemies
   useEffect(() => {
     const canvas = gameOverCanvasRef.current;
@@ -350,17 +321,17 @@ const XonixGame: React.FC = () => {
     setGameState({
       player: { x: 0, y: 0, vx: 0, vy: 0 },
       enemies: [
-        { x: centerX - 200, y: centerY - 150, vx: 2, vy: 1.5 },
-        { x: centerX + 100, y: centerY, vx: -1.5, vy: 2 },
-        { x: centerX - 100, y: centerY + 100, vx: 1, vy: -2 },
-        { x: centerX + 150, y: centerY + 150, vx: -2, vy: -1 }
+        { x: centerX, y: centerY, vx: 1, vy: 0.8 }
       ],
       trail: [],
       filledCells: new Set(),
       score: 0,
       areaFilled: 0,
       isAlive: true,
-      keys: new Set()
+      keys: new Set(),
+      level: 1,
+      enemyCount: 1,
+      isLevelTransition: false
     });
     
     setShowHighScoreEntry(false);
@@ -405,7 +376,8 @@ const XonixGame: React.FC = () => {
               />
               <div className="text-center relative z-10">
                 <h2 className="text-4xl font-bold text-white mb-4">Game Over</h2>
-                <p className="text-xl text-gray-300 mb-6">Final Score: {gameState.score}</p>
+                <p className="text-xl text-gray-300 mb-2">Final Score: {gameState.score.toLocaleString()}</p>
+                <p className="text-lg text-gray-400 mb-6">Level Reached: {gameState.level}</p>
                 <div className="space-y-3">
                   <button
                     onClick={resetGame}
@@ -431,25 +403,36 @@ const XonixGame: React.FC = () => {
         <div className="flex justify-center gap-6 mb-4">
           <div className="bg-purple-600/50 backdrop-blur-sm rounded-lg px-4 py-2 border border-purple-400/30">
             <div className="text-sm text-purple-200">Score</div>
-            <div className="text-2xl font-bold text-white">{gameState.score}</div>
+            <div className="text-2xl font-bold text-white">{gameState.score.toLocaleString()}</div>
           </div>
           <div className="bg-blue-600/50 backdrop-blur-sm rounded-lg px-4 py-2 border border-blue-400/30">
             <div className="text-sm text-blue-200">Area Filled</div>
             <div className="text-2xl font-bold text-white">{gameState.areaFilled.toFixed(1)}%</div>
           </div>
           <div className="bg-green-600/50 backdrop-blur-sm rounded-lg px-4 py-2 border border-green-400/30">
-            <div className="text-sm text-green-200">Status</div>
-            <div className="text-2xl font-bold text-white">
-              {gameState.isAlive ? 'Playing' : 'Game Over'}
-            </div>
+            <div className="text-sm text-green-200">Level</div>
+            <div className="text-2xl font-bold text-white">{gameState.level}</div>
+          </div>
+          <div className="bg-red-600/50 backdrop-blur-sm rounded-lg px-4 py-2 border border-red-400/30">
+            <div className="text-sm text-red-200">Enemies</div>
+            <div className="text-2xl font-bold text-white">{gameState.enemyCount}</div>
           </div>
         </div>
 
         <div className="text-center text-sm text-gray-300">
           <p>Use Arrow Keys or WASD to move • Fill areas by completing closed shapes</p>
-          <p>Avoid the red enemies • Fill 75% of the area to win! • Press H for High Scores</p>
+          <p>Avoid the red enemies • Fill 80% of the area to advance! • Press H for High Scores</p>
         </div>
       </div>
+      
+      <LevelTransition
+        isVisible={gameState.isLevelTransition}
+        level={gameState.level}
+        score={gameState.score}
+        onComplete={() => {
+          setGameState(prev => ({ ...prev, isLevelTransition: false }));
+        }}
+      />
       
       <HighScoreDialog
         isOpen={showHighScoreEntry}

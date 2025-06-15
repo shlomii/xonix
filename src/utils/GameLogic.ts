@@ -4,12 +4,14 @@ import { PlayerPhysics } from './physics/PlayerPhysics';
 import { EnemyPhysics } from './physics/EnemyPhysics';
 import { TrailManager } from './game/TrailManager';
 import { CollisionDetector } from './game/CollisionDetector';
+import { LevelManager } from './game/LevelManager';
 
 export class GameLogic {
   private playerPhysics: PlayerPhysics;
   private enemyPhysics: EnemyPhysics;
   private trailManager: TrailManager;
   private collisionDetector: CollisionDetector;
+  private levelManager: LevelManager;
   private gridSize: number;
 
   constructor(gridSize: number, canvasWidth: number, canvasHeight: number) {
@@ -18,10 +20,20 @@ export class GameLogic {
     this.enemyPhysics = new EnemyPhysics(gridSize, canvasWidth, canvasHeight);
     this.trailManager = new TrailManager(gridSize, canvasWidth, canvasHeight);
     this.collisionDetector = new CollisionDetector(gridSize);
+    this.levelManager = new LevelManager(gridSize, canvasWidth, canvasHeight);
   }
 
   updateGame(gameState: GameState): GameState {
     const newState = { ...gameState };
+
+    // Handle level transition state
+    if (newState.isLevelTransition) {
+      // Allow a brief pause for level transition animation
+      setTimeout(() => {
+        this.levelManager.completeLevelTransition(newState);
+      }, 1500); // 1.5 second transition
+      return newState;
+    }
 
     // Always ensure border is initialized - this handles both first run and restarts
     if (newState.filledCells.size === 0) {
@@ -39,6 +51,11 @@ export class GameLogic {
     
     // Update trail and check for area completion
     this.trailManager.updateTrail(newState);
+    
+    // Check for level completion
+    if (this.levelManager.checkLevelCompletion(newState)) {
+      this.levelManager.advanceLevel(newState);
+    }
     
     return newState;
   }

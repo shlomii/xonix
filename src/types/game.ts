@@ -20,6 +20,9 @@ export interface GameState {
   areaFilled: number;
   isAlive: boolean;
   keys: Set<string>;
+  level: number;
+  enemyCount: number;
+  isLevelTransition: boolean;
 }
 
 export interface GameConfig {
