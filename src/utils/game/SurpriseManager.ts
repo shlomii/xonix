@@ -149,17 +149,16 @@ export class SurpriseManager {
     }
   }
 
-  // Check if enemies collide with magnetic bombs
+  // Check if enemies collide with magnetic bombs - FIXED to bounce instead of explode
   checkEnemyBombCollisions(gameState: GameState) {
     const magneticBombs = gameState.surprises.filter(s => s.state === 'magnetic');
     
     magneticBombs.forEach(bomb => {
       const bombCenterX = bomb.x + this.gridSize / 2;
       const bombCenterY = bomb.y + this.gridSize / 2;
-      const explosionRadius = this.gridSize * 0.8;
+      const collisionRadius = this.gridSize * 0.6; // Slightly smaller collision radius
 
-      for (let i = gameState.enemies.length - 1; i >= 0; i--) {
-        const enemy = gameState.enemies[i];
+      gameState.enemies.forEach(enemy => {
         const enemyCenterX = enemy.x + this.gridSize / 2;
         const enemyCenterY = enemy.y + this.gridSize / 2;
         
@@ -168,31 +167,44 @@ export class SurpriseManager {
           Math.pow(enemyCenterY - bombCenterY, 2)
         );
 
-        if (distance < explosionRadius) {
-          // Enemy touches bomb - EXPLOSION!
-          this.explodeBomb(bomb, gameState, i);
-          break; // One enemy per bomb
+        if (distance < collisionRadius) {
+          // Bounce enemy away from bomb
+          this.bounceEnemyFromBomb(enemy, bomb);
         }
-      }
+      });
     });
   }
 
-  private explodeBomb(bomb: Surprise, gameState: GameState, enemyIndex: number) {
-    // Remove the enemy
-    gameState.enemies.splice(enemyIndex, 1);
-    gameState.enemyCount = gameState.enemies.length;
+  private bounceEnemyFromBomb(enemy: { x: number; y: number; vx: number; vy: number }, bomb: Surprise) {
+    const bombCenterX = bomb.x + this.gridSize / 2;
+    const bombCenterY = bomb.y + this.gridSize / 2;
+    const enemyCenterX = enemy.x + this.gridSize / 2;
+    const enemyCenterY = enemy.y + this.gridSize / 2;
     
-    // Mark bomb as exploded
-    bomb.state = 'exploded';
+    // Calculate bounce direction (away from bomb)
+    const dx = enemyCenterX - bombCenterX;
+    const dy = enemyCenterY - bombCenterY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
     
-    // Award BIG score bonus - increased significantly
-    const scoreBonus = 500 * gameState.level; // Increased from 200 to 500
-    gameState.score += scoreBonus;
-    
-    // Play explosion sound
-    audioManager.playBombExplosion();
-    
-    console.log(`💥 BOOM! Enemy eliminated by time-bomb! Score: +${scoreBonus}`);
+    if (distance > 0) {
+      // Normalize direction
+      const normalX = dx / distance;
+      const normalY = dy / distance;
+      
+      // Apply bounce force
+      const bounceStrength = 3;
+      enemy.vx = normalX * bounceStrength;
+      enemy.vy = normalY * bounceStrength;
+      
+      // Push enemy away to prevent stuck collision
+      const pushDistance = this.gridSize * 0.7;
+      enemy.x = bombCenterX + normalX * pushDistance - this.gridSize / 2;
+      enemy.y = bombCenterY + normalY * pushDistance - this.gridSize / 2;
+      
+      // Keep enemy in bounds
+      enemy.x = Math.max(0, Math.min(enemy.x, this.canvasWidth - this.gridSize));
+      enemy.y = Math.max(0, Math.min(enemy.y, this.canvasHeight - this.gridSize));
+    }
   }
 
   // FIXED: Get magnetic force ONLY for magnetic bombs (not activated ones)
