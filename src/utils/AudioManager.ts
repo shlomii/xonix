@@ -42,7 +42,7 @@ export class AudioManager {
     
     // Layer 1: Deep satisfying "thunk" (low frequency impact)
     const lowOsc = ctx.createOscillator();
-    const lowGain = ctx.createGainNode();
+    const lowGain = ctx.createGain();
     lowOsc.type = 'sine';
     lowOsc.frequency.setValueAtTime(baseFreq * 0.5, now);
     lowOsc.frequency.exponentialRampToValueAtTime(baseFreq * 0.3, now + 0.3);
@@ -54,7 +54,7 @@ export class AudioManager {
 
     // Layer 2: Satisfying "ding" (achievement recognition)
     const midOsc = ctx.createOscillator();
-    const midGain = ctx.createGainNode();
+    const midGain = ctx.createGain();
     midOsc.type = 'triangle';
     midOsc.frequency.setValueAtTime(baseFreq * 2, now + 0.05);
     midGain.gain.setValueAtTime(0.3 * this.volume, now + 0.05);
@@ -65,7 +65,7 @@ export class AudioManager {
 
     // Layer 3: Magical "sparkle" (high frequency magic)
     const highOsc = ctx.createOscillator();
-    const highGain = ctx.createGainNode();
+    const highGain = ctx.createGain();
     highOsc.type = 'square';
     highOsc.frequency.setValueAtTime(baseFreq * 4, now + 0.1);
     highOsc.frequency.exponentialRampToValueAtTime(baseFreq * 6, now + 0.6);
@@ -79,7 +79,7 @@ export class AudioManager {
     const chordFreqs = [baseFreq * 1.5, baseFreq * 1.875, baseFreq * 2.25, baseFreq * 3]; // Major 7th chord
     chordFreqs.forEach((freq, index) => {
       const chordOsc = ctx.createOscillator();
-      const chordGain = ctx.createGainNode();
+      const chordGain = ctx.createGain();
       const startTime = now + 0.15 + (index * 0.08);
       
       chordOsc.type = 'sawtooth';
@@ -102,7 +102,7 @@ export class AudioManager {
     }
     
     const noiseSource = ctx.createBufferSource();
-    const noiseGain = ctx.createGainNode();
+    const noiseGain = ctx.createGain();
     const noiseFilter = ctx.createBiquadFilter();
     
     noiseSource.buffer = noiseBuffer;
@@ -124,7 +124,7 @@ export class AudioManager {
     const now = ctx.currentTime;
     
     const osc = ctx.createOscillator();
-    const gain = ctx.createGainNode();
+    const gain = ctx.createGain();
     
     osc.type = 'square';
     osc.frequency.setValueAtTime(800, now);
@@ -144,7 +144,7 @@ export class AudioManager {
     const now = ctx.currentTime;
     
     const osc = ctx.createOscillator();
-    const gain = ctx.createGainNode();
+    const gain = ctx.createGain();
     
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(300, now);
@@ -168,7 +168,7 @@ export class AudioManager {
     const melody = [440, 550, 660, 770, 880]; // A major scale ascending
     melody.forEach((freq, index) => {
       const osc = ctx.createOscillator();
-      const gain = ctx.createGainNode();
+      const gain = ctx.createGain();
       const startTime = now + (index * 0.1);
       
       osc.type = 'sawtooth';
@@ -191,7 +191,7 @@ export class AudioManager {
     
     // Descending dramatic sound
     const osc = ctx.createOscillator();
-    const gain = ctx.createGainNode();
+    const gain = ctx.createGain();
     
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(440, now);
@@ -212,7 +212,7 @@ export class AudioManager {
     const now = ctx.currentTime;
     
     const osc = ctx.createOscillator();
-    const gain = ctx.createGainNode();
+    const gain = ctx.createGain();
     
     osc.type = 'sine';
     osc.frequency.setValueAtTime(1000, now);
