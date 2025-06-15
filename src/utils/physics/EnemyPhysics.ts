@@ -1,4 +1,3 @@
-
 import { GameState } from '../../types/game';
 
 export class EnemyPhysics {
@@ -8,16 +7,16 @@ export class EnemyPhysics {
   private accelerationTimers: Map<number, number> = new Map();
   private baseVelocities: Map<number, {vx: number, vy: number}> = new Map();
 
-  // Reduced physics constants for slower, more manageable enemies
+  // Enhanced physics constants for better bouncing behavior
   private readonly BASE_SPEED = 0.8;
-  private readonly MAX_SPEED = 2.0;
+  private readonly MAX_SPEED = 2.5;
   private readonly MIN_SPEED = 0.5;
   private readonly PLAYER_ATTRACTION_STRENGTH = 0.3;
   private readonly EXPLORATION_FORCE = 0.2;
   private readonly WALL_BOUNCE_DAMPING = 0.8;
-  private readonly FILLED_BOUNCE_BOOST = 2.5; // Much stronger bounce from filled areas
+  private readonly FILLED_BOUNCE_BOOST = 3.0; // Strong acceleration on bounce
   private readonly FRICTION = 0.99;
-  private readonly ACCELERATION_BOOST = 1.2;
+  private readonly ACCELERATION_BOOST = 1.3;
   private readonly SEEK_DISTANCE_THRESHOLD = 200;
 
   constructor(gridSize: number, canvasWidth: number, canvasHeight: number) {
@@ -51,24 +50,23 @@ export class EnemyPhysics {
       enemy.vx *= this.FRICTION;
       enemy.vy *= this.FRICTION;
 
-      // Predictive collision detection - check where enemy will be next frame
-      const nextX = enemy.x + enemy.vx;
-      const nextY = enemy.y + enemy.vy;
+      // Enhanced collision detection with filled areas
+      const collisionResult = this.checkFilledAreaCollision(enemy, gameState, gridWidth, gridHeight);
       
-      // Check if next position would be in filled area
-      if (this.wouldCollideWithFilledArea(nextX, nextY, gameState, gridWidth, gridHeight)) {
+      if (collisionResult.willCollide) {
         // Bounce immediately before moving
-        this.bounceFromFilledArea(enemy, index, currentTime, gameState, gridWidth, gridHeight);
+        this.bounceFromFilledArea(enemy, index, currentTime, collisionResult.normal);
+        console.log(`Enemy ${index} bounced from filled area at (${Math.floor(enemy.x / this.gridSize)}, ${Math.floor(enemy.y / this.gridSize)})`);
       } else {
         // Update position only if safe
-        enemy.x = nextX;
-        enemy.y = nextY;
+        enemy.x += enemy.vx;
+        enemy.y += enemy.vy;
       }
 
       // Handle wall collisions
       this.handleWallCollisions(enemy, index, currentTime);
 
-      // Ensure enemy is not stuck in filled area (safety check)
+      // Safety check - separate from filled areas if somehow stuck
       this.separateFromFilledAreas(enemy, gameState, gridWidth, gridHeight);
 
       // Enforce speed limits
@@ -76,36 +74,71 @@ export class EnemyPhysics {
     });
   }
 
-  private wouldCollideWithFilledArea(
-    x: number, 
-    y: number, 
-    gameState: GameState, 
-    gridWidth: number, 
+  private checkFilledAreaCollision(
+    enemy: { vx: number; vy: number; x: number; y: number },
+    gameState: GameState,
+    gridWidth: number,
     gridHeight: number
-  ): boolean {
-    const gridX = Math.floor(x / this.gridSize);
-    const gridY = Math.floor(y / this.gridSize);
+  ): { willCollide: boolean; normal: { x: number; y: number } } {
+    const enemyRadius = this.gridSize * 0.4; // Enemy effective radius
+    const nextX = enemy.x + enemy.vx;
+    const nextY = enemy.y + enemy.vy;
     
-    // Don't consider border cells for collision (they're handled separately)
-    const isBorderCell = gridX === 0 || gridX === gridWidth - 1 || gridY === 0 || gridY === gridHeight - 1;
-    
-    return !isBorderCell && gameState.filledCells.has(`${gridX},${gridY}`);
+    // Check multiple points around the enemy's predicted position
+    const checkPoints = [
+      { x: nextX, y: nextY }, // Center
+      { x: nextX - enemyRadius, y: nextY }, // Left
+      { x: nextX + enemyRadius, y: nextY }, // Right  
+      { x: nextX, y: nextY - enemyRadius }, // Top
+      { x: nextX, y: nextY + enemyRadius }, // Bottom
+    ];
+
+    for (const point of checkPoints) {
+      const gridX = Math.floor(point.x / this.gridSize);
+      const gridY = Math.floor(point.y / this.gridSize);
+      
+      // Check bounds
+      if (gridX < 0 || gridX >= gridWidth || gridY < 0 || gridY >= gridHeight) {
+        continue;
+      }
+      
+      // Check if this grid cell is filled (including borders and filled areas)
+      if (gameState.filledCells.has(`${gridX},${gridY}`)) {
+        // Calculate collision normal based on which side of the cell we're hitting
+        const cellCenterX = gridX * this.gridSize + this.gridSize / 2;
+        const cellCenterY = gridY * this.gridSize + this.gridSize / 2;
+        
+        const dx = enemy.x - cellCenterX;
+        const dy = enemy.y - cellCenterY;
+        
+        // Normalize the collision normal
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const normal = distance > 0 ? { x: dx / distance, y: dy / distance } : { x: 1, y: 0 };
+        
+        return { willCollide: true, normal };
+      }
+    }
+
+    return { willCollide: false, normal: { x: 0, y: 0 } };
   }
 
   private bounceFromFilledArea(
     enemy: { vx: number; vy: number; x: number; y: number },
     index: number,
     currentTime: number,
-    gameState: GameState,
-    gridWidth: number,
-    gridHeight: number
+    normal: { x: number; y: number }
   ) {
-    // Reverse velocity with strong boost
-    enemy.vx = -enemy.vx * this.FILLED_BOUNCE_BOOST;
-    enemy.vy = -enemy.vy * this.FILLED_BOUNCE_BOOST;
+    // Calculate reflection vector: v' = v - 2(v·n)n
+    const dotProduct = enemy.vx * normal.x + enemy.vy * normal.y;
+    const reflectedVx = enemy.vx - 2 * dotProduct * normal.x;
+    const reflectedVy = enemy.vy - 2 * dotProduct * normal.y;
     
-    // Add random angle variation to prevent getting stuck
-    const angleVariation = (Math.random() - 0.5) * 0.6;
+    // Apply bounce with acceleration boost
+    enemy.vx = reflectedVx * this.FILLED_BOUNCE_BOOST;
+    enemy.vy = reflectedVy * this.FILLED_BOUNCE_BOOST;
+    
+    // Add some randomness to prevent repetitive patterns
+    const angleVariation = (Math.random() - 0.5) * 0.3;
     const cos = Math.cos(angleVariation);
     const sin = Math.sin(angleVariation);
     const newVx = enemy.vx * cos - enemy.vy * sin;
@@ -120,8 +153,6 @@ export class EnemyPhysics {
       vy: enemy.vy
     });
     
-    console.log(`Enemy ${index} bounced from filled area with velocity:`, { vx: enemy.vx, vy: enemy.vy });
-    
     this.accelerateEnemy(enemy, index, currentTime);
   }
 
@@ -135,9 +166,9 @@ export class EnemyPhysics {
     const gridY = Math.floor(enemy.y / this.gridSize);
     
     // Check if enemy is currently in a filled area
-    const isBorderCell = gridX === 0 || gridX === gridWidth - 1 || gridY === 0 || gridY === gridHeight - 1;
-    
-    if (!isBorderCell && gameState.filledCells.has(`${gridX},${gridY}`)) {
+    if (gridX >= 0 && gridX < gridWidth && gridY >= 0 && gridY < gridHeight && 
+        gameState.filledCells.has(`${gridX},${gridY}`)) {
+      
       console.log(`Enemy stuck in filled area at (${gridX}, ${gridY}), separating...`);
       
       // Find nearest empty cell and push enemy there
@@ -145,36 +176,39 @@ export class EnemyPhysics {
       let bestX = enemy.x;
       let bestY = enemy.y;
       
-      // Check surrounding cells
-      for (let dx = -2; dx <= 2; dx++) {
-        for (let dy = -2; dy <= 2; dy++) {
-          const checkX = gridX + dx;
-          const checkY = gridY + dy;
-          
-          if (checkX >= 0 && checkX < gridWidth && checkY >= 0 && checkY < gridHeight) {
-            const isCheckBorder = checkX === 0 || checkX === gridWidth - 1 || checkY === 0 || checkY === gridHeight - 1;
+      // Check surrounding cells in expanding radius
+      for (let radius = 1; radius <= 3; radius++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          for (let dy = -radius; dy <= radius; dy++) {
+            if (Math.abs(dx) !== radius && Math.abs(dy) !== radius) continue; // Only check perimeter
             
-            if (!gameState.filledCells.has(`${checkX},${checkY}`) && !isCheckBorder) {
-              const distance = Math.abs(dx) + Math.abs(dy);
-              if (distance < minDistance) {
-                minDistance = distance;
-                bestX = checkX * this.gridSize + this.gridSize / 2;
-                bestY = checkY * this.gridSize + this.gridSize / 2;
+            const checkX = gridX + dx;
+            const checkY = gridY + dy;
+            
+            if (checkX >= 0 && checkX < gridWidth && checkY >= 0 && checkY < gridHeight) {
+              if (!gameState.filledCells.has(`${checkX},${checkY}`)) {
+                const distance = Math.abs(dx) + Math.abs(dy);
+                if (distance < minDistance) {
+                  minDistance = distance;
+                  bestX = checkX * this.gridSize + this.gridSize / 2;
+                  bestY = checkY * this.gridSize + this.gridSize / 2;
+                }
               }
             }
           }
         }
+        if (minDistance < Infinity) break; // Found a spot
       }
       
       // Move enemy to best position
       enemy.x = bestX;
       enemy.y = bestY;
       
-      // Give enemy a push away from filled areas
-      const pushX = (Math.random() - 0.5) * 4;
-      const pushY = (Math.random() - 0.5) * 4;
-      enemy.vx = pushX;
-      enemy.vy = pushY;
+      // Give enemy a strong push away from filled areas
+      const pushAngle = Math.atan2(bestY - (gridY * this.gridSize + this.gridSize / 2), 
+                                   bestX - (gridX * this.gridSize + this.gridSize / 2));
+      enemy.vx = Math.cos(pushAngle) * this.BASE_SPEED * 2;
+      enemy.vy = Math.sin(pushAngle) * this.BASE_SPEED * 2;
     }
   }
 
