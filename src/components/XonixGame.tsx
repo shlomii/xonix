@@ -10,11 +10,28 @@ import HighScoreTable from './HighScoreTable';
 const GRID_SIZE = 15; // Grid cell size in pixels
 const ASPECT_RATIO = 4 / 3; // Width to height ratio
 
+interface GameOverEnemy {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  bounds: {
+    minX: number;
+    maxX: number;
+    minY: number;
+    maxY: number;
+  };
+}
+
 const XonixGame: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const gameOverCanvasRef = useRef<HTMLCanvasElement>(null);
   const [canvasDimensions, setCanvasDimensions] = useState({ width: 1200, height: 900 });
   const [showHighScoreEntry, setShowHighScoreEntry] = useState(false);
   const [showHighScoreTable, setShowHighScoreTable] = useState(false);
+  const [gameOverEnemies, setGameOverEnemies] = useState<GameOverEnemy[]>([]);
+  const animationFrameRef = useRef<number>();
+  
   const [gameState, setGameState] = useState<GameState>({
     player: { x: 0, y: 0, vx: 0, vy: 0 },
     enemies: [
@@ -62,6 +79,103 @@ const XonixGame: React.FC = () => {
     
     return { width: canvasWidth, height: canvasHeight };
   }, []);
+
+  // Create bouncing enemies for game over screen
+  const createGameOverEnemies = useCallback(() => {
+    const enemies: GameOverEnemy[] = [];
+    
+    // Game Over title area enemies (2-3 enemies)
+    for (let i = 0; i < 3; i++) {
+      enemies.push({
+        x: 200 + Math.random() * 200,
+        y: 150 + Math.random() * 50,
+        vx: (Math.random() - 0.5) * 4,
+        vy: (Math.random() - 0.5) * 4,
+        bounds: { minX: 150, maxX: 450, minY: 120, maxY: 220 }
+      });
+    }
+    
+    // Score area enemies (1-2 enemies)
+    for (let i = 0; i < 2; i++) {
+      enemies.push({
+        x: 250 + Math.random() * 100,
+        y: 250 + Math.random() * 30,
+        vx: (Math.random() - 0.5) * 3,
+        vy: (Math.random() - 0.5) * 3,
+        bounds: { minX: 200, maxX: 400, minY: 240, maxY: 290 }
+      });
+    }
+    
+    // Play Again button enemies (1-2 enemies)
+    for (let i = 0; i < 2; i++) {
+      enemies.push({
+        x: 220 + Math.random() * 80,
+        y: 320 + Math.random() * 20,
+        vx: (Math.random() - 0.5) * 2.5,
+        vy: (Math.random() - 0.5) * 2.5,
+        bounds: { minX: 200, maxX: 320, minY: 310, maxY: 350 }
+      });
+    }
+    
+    // High Scores button enemies (1-2 enemies)
+    for (let i = 0; i < 2; i++) {
+      enemies.push({
+        x: 220 + Math.random() * 80,
+        y: 360 + Math.random() * 20,
+        vx: (Math.random() - 0.5) * 2.5,
+        vy: (Math.random() - 0.5) * 2.5,
+        bounds: { minX: 200, maxX: 320, minY: 355, maxY: 395 }
+      });
+    }
+    
+    return enemies;
+  }, []);
+
+  // Update game over enemies animation
+  const updateGameOverEnemies = useCallback(() => {
+    setGameOverEnemies(prev => prev.map(enemy => {
+      let newX = enemy.x + enemy.vx;
+      let newY = enemy.y + enemy.vy;
+      let newVx = enemy.vx;
+      let newVy = enemy.vy;
+      
+      // Bounce off boundaries
+      if (newX <= enemy.bounds.minX || newX >= enemy.bounds.maxX) {
+        newVx = -newVx;
+        newX = Math.max(enemy.bounds.minX, Math.min(enemy.bounds.maxX, newX));
+      }
+      if (newY <= enemy.bounds.minY || newY >= enemy.bounds.maxY) {
+        newVy = -newVy;
+        newY = Math.max(enemy.bounds.minY, Math.min(enemy.bounds.maxY, newY));
+      }
+      
+      return { ...enemy, x: newX, y: newY, vx: newVx, vy: newVy };
+    }));
+  }, []);
+
+  // Animate game over enemies
+  useEffect(() => {
+    if (!gameState.isAlive && !showHighScoreEntry && !showHighScoreTable) {
+      const animate = () => {
+        updateGameOverEnemies();
+        animationFrameRef.current = requestAnimationFrame(animate);
+      };
+      animationFrameRef.current = requestAnimationFrame(animate);
+      
+      return () => {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
+      };
+    }
+  }, [gameState.isAlive, showHighScoreEntry, showHighScoreTable, updateGameOverEnemies]);
+
+  // Initialize game over enemies when game ends
+  useEffect(() => {
+    if (!gameState.isAlive && gameOverEnemies.length === 0) {
+      setGameOverEnemies(createGameOverEnemies());
+    }
+  }, [gameState.isAlive, gameOverEnemies.length, createGameOverEnemies]);
 
   // Initialize and update game logic/renderer when dimensions change
   useEffect(() => {
@@ -127,26 +241,6 @@ const XonixGame: React.FC = () => {
     });
   }, [gameState.isAlive]);
 
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    const key = e.key.toLowerCase();
-    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(key)) {
-      e.preventDefault();
-      setGameState(prev => ({
-        ...prev,
-        keys: new Set([...prev.keys, key])
-      }));
-    }
-  }, []);
-
-  const handleKeyUp = useCallback((e: KeyboardEvent) => {
-    const key = e.key.toLowerCase();
-    setGameState(prev => {
-      const newKeys = new Set(prev.keys);
-      newKeys.delete(key);
-      return { ...prev, keys: newKeys };
-    });
-  }, []);
-
   const handleHighScoreSubmit = (name: string) => {
     HighScoreManager.addHighScore(name, gameState.score);
     setShowHighScoreEntry(false);
@@ -154,6 +248,13 @@ const XonixGame: React.FC = () => {
   };
 
   const handleKeyDownGlobal = useCallback((e: KeyboardEvent) => {
+    // Handle spacebar for restarting game
+    if (e.key === ' ' && !gameState.isAlive && !showHighScoreEntry && !showHighScoreTable) {
+      e.preventDefault();
+      resetGame();
+      return;
+    }
+    
     if (e.key === 'Escape') {
       if (showHighScoreTable) {
         setShowHighScoreTable(false);
@@ -171,7 +272,7 @@ const XonixGame: React.FC = () => {
         keys: new Set([...prev.keys, key])
       }));
     }
-  }, [showHighScoreTable, gameState.isAlive]);
+  }, [showHighScoreTable, gameState.isAlive, showHighScoreEntry]);
 
   const handleKeyUpGlobal = useCallback((e: KeyboardEvent) => {
     const key = e.key.toLowerCase();
@@ -223,6 +324,25 @@ const XonixGame: React.FC = () => {
     renderer.current.render(ctx, gameState);
   }, [gameState, canvasDimensions]);
 
+  // Render game over enemies
+  useEffect(() => {
+    const canvas = gameOverCanvasRef.current;
+    if (!canvas || gameState.isAlive || showHighScoreEntry || showHighScoreTable || !renderer.current) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Convert game over enemies to regular enemy format for rendering
+    const enemiesForRendering = gameOverEnemies.map(enemy => ({
+      x: enemy.x - GRID_SIZE/2,
+      y: enemy.y - GRID_SIZE/2
+    }));
+    
+    renderer.current.drawEnemies(ctx, enemiesForRendering);
+  }, [gameOverEnemies, gameState.isAlive, showHighScoreEntry, showHighScoreTable]);
+
   const resetGame = () => {
     const centerX = Math.floor(canvasDimensions.width / 2);
     const centerY = Math.floor(canvasDimensions.height / 2);
@@ -245,6 +365,7 @@ const XonixGame: React.FC = () => {
     
     setShowHighScoreEntry(false);
     setShowHighScoreTable(false);
+    setGameOverEnemies([]);
   };
 
   return (
@@ -272,7 +393,17 @@ const XonixGame: React.FC = () => {
                 height: `${canvasDimensions.height}px`
               }}
             >
-              <div className="text-center">
+              <canvas
+                ref={gameOverCanvasRef}
+                className="absolute inset-0 pointer-events-none"
+                width={canvasDimensions.width}
+                height={canvasDimensions.height}
+                style={{
+                  width: `${canvasDimensions.width}px`,
+                  height: `${canvasDimensions.height}px`
+                }}
+              />
+              <div className="text-center relative z-10">
                 <h2 className="text-4xl font-bold text-white mb-4">Game Over</h2>
                 <p className="text-xl text-gray-300 mb-6">Final Score: {gameState.score}</p>
                 <div className="space-y-3">
@@ -288,6 +419,9 @@ const XonixGame: React.FC = () => {
                   >
                     High Scores
                   </button>
+                </div>
+                <div className="text-center mt-4 text-sm text-gray-400">
+                  Press SPACEBAR to play again
                 </div>
               </div>
             </div>

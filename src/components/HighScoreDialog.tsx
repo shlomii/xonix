@@ -36,7 +36,7 @@ const HighScoreDialog: React.FC<HighScoreDialogProps> = ({ isOpen, score, onSubm
       setCurrentChar(Math.min(2, currentChar + 1));
     } else if (e.key === 'ArrowLeft') {
       setCurrentChar(Math.max(0, currentChar - 1));
-    } else if (e.key === 'Enter' || e.key === ' ') {
+    } else if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
       onSubmit(name);
     }
   };
@@ -82,6 +82,7 @@ const HighScoreDialog: React.FC<HighScoreDialogProps> = ({ isOpen, score, onSubm
             <div>USE ↑↓ TO CHANGE LETTER</div>
             <div>USE ←→ TO MOVE CURSOR</div>
             <div>PRESS ENTER TO CONFIRM</div>
+            <div>PRESS ESC TO SKIP</div>
           </div>
         </div>
       </DialogContent>

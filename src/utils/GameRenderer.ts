@@ -47,6 +47,42 @@ export class GameRenderer {
     this.drawCanvasBoundary(ctx);
   }
 
+  // Make drawEnemies public for game over screen
+  drawEnemies(ctx: CanvasRenderingContext2D, enemies: Array<{x: number, y: number}>) {
+    enemies.forEach((enemy, index) => {
+      const centerX = enemy.x + this.gridSize / 2;
+      const centerY = enemy.y + this.gridSize / 2;
+      const pulse = Math.sin(this.time * 4 + index) * 0.1 + 1;
+      
+      // Enhanced enemy glow with better quality
+      const glowGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, this.gridSize * 0.8 * pulse);
+      glowGradient.addColorStop(0, 'rgba(239, 68, 68, 0.6)');
+      glowGradient.addColorStop(0.5, 'rgba(239, 68, 68, 0.3)');
+      glowGradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
+      
+      ctx.fillStyle = glowGradient;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, this.gridSize * 0.8 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Enemy core with better definition
+      const coreGradient = ctx.createRadialGradient(centerX - 2, centerY - 2, 0, centerX, centerY, this.gridSize * 0.3 * pulse);
+      coreGradient.addColorStop(0, 'rgb(248, 113, 113)');
+      coreGradient.addColorStop(1, 'rgb(220, 38, 38)');
+      
+      ctx.fillStyle = coreGradient;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, this.gridSize * 0.3 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Enhanced highlight
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.beginPath();
+      ctx.arc(centerX - 2, centerY - 2, this.gridSize * 0.08 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
   private drawBackground(ctx: CanvasRenderingContext2D) {
     // Enhanced gradient background with more depth
     const gradient = ctx.createLinearGradient(0, 0, this.canvasWidth, this.canvasHeight);
@@ -170,41 +206,6 @@ export class GameRenderer {
     ctx.strokeStyle = 'rgba(236, 72, 153, 0.3)';
     ctx.lineWidth = 0.5;
     ctx.strokeRect(x + 0.5, y + 0.5, this.gridSize - 1, this.gridSize - 1);
-  }
-
-  private drawEnemies(ctx: CanvasRenderingContext2D, enemies: Array<{x: number, y: number}>) {
-    enemies.forEach((enemy, index) => {
-      const centerX = enemy.x + this.gridSize / 2;
-      const centerY = enemy.y + this.gridSize / 2;
-      const pulse = Math.sin(this.time * 4 + index) * 0.1 + 1;
-      
-      // Enhanced enemy glow with better quality
-      const glowGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, this.gridSize * 0.8 * pulse);
-      glowGradient.addColorStop(0, 'rgba(239, 68, 68, 0.6)');
-      glowGradient.addColorStop(0.5, 'rgba(239, 68, 68, 0.3)');
-      glowGradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
-      
-      ctx.fillStyle = glowGradient;
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, this.gridSize * 0.8 * pulse, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Enemy core with better definition
-      const coreGradient = ctx.createRadialGradient(centerX - 2, centerY - 2, 0, centerX, centerY, this.gridSize * 0.3 * pulse);
-      coreGradient.addColorStop(0, 'rgb(248, 113, 113)');
-      coreGradient.addColorStop(1, 'rgb(220, 38, 38)');
-      
-      ctx.fillStyle = coreGradient;
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, this.gridSize * 0.3 * pulse, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Enhanced highlight
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.beginPath();
-      ctx.arc(centerX - 2, centerY - 2, this.gridSize * 0.08 * pulse, 0, Math.PI * 2);
-      ctx.fill();
-    });
   }
 
   private drawPlayer(ctx: CanvasRenderingContext2D, player: {x: number, y: number}) {
