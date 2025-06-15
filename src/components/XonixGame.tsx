@@ -3,6 +3,9 @@ import { GameState, Position, Enemy } from '../types/game';
 import { useGameLoop } from '../hooks/useGameLoop';
 import { GameRenderer } from '../utils/GameRenderer';
 import { GameLogic } from '../utils/GameLogic';
+import { HighScoreManager } from '../utils/HighScoreManager';
+import HighScoreDialog from './HighScoreDialog';
+import HighScoreTable from './HighScoreTable';
 
 const GRID_SIZE = 15; // Grid cell size in pixels
 const ASPECT_RATIO = 4 / 3; // Width to height ratio
@@ -10,6 +13,8 @@ const ASPECT_RATIO = 4 / 3; // Width to height ratio
 const XonixGame: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [canvasDimensions, setCanvasDimensions] = useState({ width: 1200, height: 900 });
+  const [showHighScoreEntry, setShowHighScoreEntry] = useState(false);
+  const [showHighScoreTable, setShowHighScoreTable] = useState(false);
   const [gameState, setGameState] = useState<GameState>({
     player: { x: 0, y: 0, vx: 0, vy: 0 },
     enemies: [
@@ -110,6 +115,14 @@ const XonixGame: React.FC = () => {
 
     setGameState(prev => {
       const newState = gameLogic.current!.updateGame(prev);
+      
+      // Check for game over and high score
+      if (prev.isAlive && !newState.isAlive) {
+        if (HighScoreManager.isHighScore(newState.score)) {
+          setTimeout(() => setShowHighScoreEntry(true), 1000);
+        }
+      }
+      
       return newState;
     });
   }, [gameState.isAlive]);
@@ -134,14 +147,49 @@ const XonixGame: React.FC = () => {
     });
   }, []);
 
+  const handleHighScoreSubmit = (name: string) => {
+    HighScoreManager.addHighScore(name, gameState.score);
+    setShowHighScoreEntry(false);
+    setShowHighScoreTable(true);
+  };
+
+  const handleKeyDownGlobal = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      if (showHighScoreTable) {
+        setShowHighScoreTable(false);
+      }
+    } else if (e.key.toLowerCase() === 'h' && gameState.isAlive) {
+      setShowHighScoreTable(true);
+    }
+    
+    // Handle game keys
+    const key = e.key.toLowerCase();
+    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(key)) {
+      e.preventDefault();
+      setGameState(prev => ({
+        ...prev,
+        keys: new Set([...prev.keys, key])
+      }));
+    }
+  }, [showHighScoreTable, gameState.isAlive]);
+
+  const handleKeyUpGlobal = useCallback((e: KeyboardEvent) => {
+    const key = e.key.toLowerCase();
+    setGameState(prev => {
+      const newKeys = new Set(prev.keys);
+      newKeys.delete(key);
+      return { ...prev, keys: newKeys };
+    });
+  }, []);
+
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('keydown', handleKeyDownGlobal);
+    window.addEventListener('keyup', handleKeyUpGlobal);
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('keydown', handleKeyDownGlobal);
+      window.removeEventListener('keyup', handleKeyUpGlobal);
     };
-  }, [handleKeyDown, handleKeyUp]);
+  }, [handleKeyDownGlobal, handleKeyUpGlobal]);
 
   useGameLoop(updateGame, 60);
 
@@ -194,6 +242,9 @@ const XonixGame: React.FC = () => {
       isAlive: true,
       keys: new Set()
     });
+    
+    setShowHighScoreEntry(false);
+    setShowHighScoreTable(false);
   };
 
   return (
@@ -213,7 +264,7 @@ const XonixGame: React.FC = () => {
             }}
           />
           
-          {!gameState.isAlive && (
+          {!gameState.isAlive && !showHighScoreEntry && (
             <div 
               className="absolute inset-0 bg-black/80 flex items-center justify-center rounded-lg"
               style={{
@@ -224,12 +275,20 @@ const XonixGame: React.FC = () => {
               <div className="text-center">
                 <h2 className="text-4xl font-bold text-white mb-4">Game Over</h2>
                 <p className="text-xl text-gray-300 mb-6">Final Score: {gameState.score}</p>
-                <button
-                  onClick={resetGame}
-                  className="px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 text-white font-bold rounded-lg hover:from-green-600 hover:to-blue-600 transition-all duration-200 transform hover:scale-105"
-                >
-                  Play Again
-                </button>
+                <div className="space-y-3">
+                  <button
+                    onClick={resetGame}
+                    className="block mx-auto px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 text-white font-bold rounded-lg hover:from-green-600 hover:to-blue-600 transition-all duration-200 transform hover:scale-105"
+                  >
+                    Play Again
+                  </button>
+                  <button
+                    onClick={() => setShowHighScoreTable(true)}
+                    className="block mx-auto px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold rounded-lg hover:from-yellow-600 hover:to-orange-600 transition-all duration-200 transform hover:scale-105"
+                  >
+                    High Scores
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -254,9 +313,24 @@ const XonixGame: React.FC = () => {
 
         <div className="text-center text-sm text-gray-300">
           <p>Use Arrow Keys or WASD to move • Fill areas by completing closed shapes</p>
-          <p>Avoid the red enemies • Fill 75% of the area to win!</p>
+          <p>Avoid the red enemies • Fill 75% of the area to win! • Press H for High Scores</p>
         </div>
       </div>
+      
+      <HighScoreDialog
+        isOpen={showHighScoreEntry}
+        score={gameState.score}
+        onSubmit={handleHighScoreSubmit}
+      />
+      
+      {showHighScoreTable && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <HighScoreTable 
+            scores={HighScoreManager.getHighScores()} 
+            currentScore={gameState.score}
+          />
+        </div>
+      )}
     </div>
   );
 };
