@@ -1,3 +1,4 @@
+
 import { GameState } from '../../types/game';
 
 export class EnemyPhysics {
@@ -14,7 +15,7 @@ export class EnemyPhysics {
   private readonly PLAYER_ATTRACTION_STRENGTH = 0.3;
   private readonly EXPLORATION_FORCE = 0.2;
   private readonly WALL_BOUNCE_DAMPING = 0.8;
-  private readonly FILLED_BOUNCE_BOOST = 1.1;
+  private readonly FILLED_BOUNCE_BOOST = 2.5; // Much stronger bounce from filled areas
   private readonly FRICTION = 0.99;
   private readonly ACCELERATION_BOOST = 1.2;
   private readonly SEEK_DISTANCE_THRESHOLD = 200;
@@ -50,17 +51,131 @@ export class EnemyPhysics {
       enemy.vx *= this.FRICTION;
       enemy.vy *= this.FRICTION;
 
-      // Update position
-      enemy.x += enemy.vx;
-      enemy.y += enemy.vy;
+      // Predictive collision detection - check where enemy will be next frame
+      const nextX = enemy.x + enemy.vx;
+      const nextY = enemy.y + enemy.vy;
+      
+      // Check if next position would be in filled area
+      if (this.wouldCollideWithFilledArea(nextX, nextY, gameState, gridWidth, gridHeight)) {
+        // Bounce immediately before moving
+        this.bounceFromFilledArea(enemy, index, currentTime, gameState, gridWidth, gridHeight);
+      } else {
+        // Update position only if safe
+        enemy.x = nextX;
+        enemy.y = nextY;
+      }
 
-      // Handle collisions
+      // Handle wall collisions
       this.handleWallCollisions(enemy, index, currentTime);
-      this.handleFilledAreaCollisions(enemy, index, currentTime, gameState, gridWidth, gridHeight);
+
+      // Ensure enemy is not stuck in filled area (safety check)
+      this.separateFromFilledAreas(enemy, gameState, gridWidth, gridHeight);
 
       // Enforce speed limits
       this.enforceSpeedLimits(enemy, index);
     });
+  }
+
+  private wouldCollideWithFilledArea(
+    x: number, 
+    y: number, 
+    gameState: GameState, 
+    gridWidth: number, 
+    gridHeight: number
+  ): boolean {
+    const gridX = Math.floor(x / this.gridSize);
+    const gridY = Math.floor(y / this.gridSize);
+    
+    // Don't consider border cells for collision (they're handled separately)
+    const isBorderCell = gridX === 0 || gridX === gridWidth - 1 || gridY === 0 || gridY === gridHeight - 1;
+    
+    return !isBorderCell && gameState.filledCells.has(`${gridX},${gridY}`);
+  }
+
+  private bounceFromFilledArea(
+    enemy: { vx: number; vy: number; x: number; y: number },
+    index: number,
+    currentTime: number,
+    gameState: GameState,
+    gridWidth: number,
+    gridHeight: number
+  ) {
+    // Reverse velocity with strong boost
+    enemy.vx = -enemy.vx * this.FILLED_BOUNCE_BOOST;
+    enemy.vy = -enemy.vy * this.FILLED_BOUNCE_BOOST;
+    
+    // Add random angle variation to prevent getting stuck
+    const angleVariation = (Math.random() - 0.5) * 0.6;
+    const cos = Math.cos(angleVariation);
+    const sin = Math.sin(angleVariation);
+    const newVx = enemy.vx * cos - enemy.vy * sin;
+    const newVy = enemy.vx * sin + enemy.vy * cos;
+    
+    enemy.vx = newVx;
+    enemy.vy = newVy;
+    
+    // Update base velocity
+    this.baseVelocities.set(index, {
+      vx: enemy.vx,
+      vy: enemy.vy
+    });
+    
+    console.log(`Enemy ${index} bounced from filled area with velocity:`, { vx: enemy.vx, vy: enemy.vy });
+    
+    this.accelerateEnemy(enemy, index, currentTime);
+  }
+
+  private separateFromFilledAreas(
+    enemy: { vx: number; vy: number; x: number; y: number },
+    gameState: GameState,
+    gridWidth: number,
+    gridHeight: number
+  ) {
+    const gridX = Math.floor(enemy.x / this.gridSize);
+    const gridY = Math.floor(enemy.y / this.gridSize);
+    
+    // Check if enemy is currently in a filled area
+    const isBorderCell = gridX === 0 || gridX === gridWidth - 1 || gridY === 0 || gridY === gridHeight - 1;
+    
+    if (!isBorderCell && gameState.filledCells.has(`${gridX},${gridY}`)) {
+      console.log(`Enemy stuck in filled area at (${gridX}, ${gridY}), separating...`);
+      
+      // Find nearest empty cell and push enemy there
+      let minDistance = Infinity;
+      let bestX = enemy.x;
+      let bestY = enemy.y;
+      
+      // Check surrounding cells
+      for (let dx = -2; dx <= 2; dx++) {
+        for (let dy = -2; dy <= 2; dy++) {
+          const checkX = gridX + dx;
+          const checkY = gridY + dy;
+          
+          if (checkX >= 0 && checkX < gridWidth && checkY >= 0 && checkY < gridHeight) {
+            const isCheckBorder = checkX === 0 || checkX === gridWidth - 1 || checkY === 0 || checkY === gridHeight - 1;
+            
+            if (!gameState.filledCells.has(`${checkX},${checkY}`) && !isCheckBorder) {
+              const distance = Math.abs(dx) + Math.abs(dy);
+              if (distance < minDistance) {
+                minDistance = distance;
+                bestX = checkX * this.gridSize + this.gridSize / 2;
+                bestY = checkY * this.gridSize + this.gridSize / 2;
+              }
+            }
+          }
+        }
+      }
+      
+      // Move enemy to best position
+      enemy.x = bestX;
+      enemy.y = bestY;
+      
+      // Give enemy a push away from filled areas
+      const pushX = (Math.random() - 0.5) * 4;
+      const pushY = (Math.random() - 0.5) * 4;
+      enemy.vx = pushX;
+      enemy.vy = pushY;
+    }
   }
 
   private applyPlayerAttraction(
@@ -150,45 +265,6 @@ export class EnemyPhysics {
       });
       
       // Small acceleration boost after bouncing
-      this.accelerateEnemy(enemy, index, currentTime);
-    }
-  }
-
-  private handleFilledAreaCollisions(
-    enemy: { vx: number; vy: number; x: number; y: number },
-    index: number,
-    currentTime: number,
-    gameState: GameState,
-    gridWidth: number,
-    gridHeight: number
-  ) {
-    const gridX = Math.floor(enemy.x / this.gridSize);
-    const gridY = Math.floor(enemy.y / this.gridSize);
-    
-    // Don't bounce off border cells, only filled interior cells
-    const isBorderCell = gridX === 0 || gridX === gridWidth - 1 || gridY === 0 || gridY === gridHeight - 1;
-    
-    if (!isBorderCell && gameState.filledCells.has(`${gridX},${gridY}`)) {
-      // Bounce with energy boost
-      enemy.vx = -enemy.vx * this.FILLED_BOUNCE_BOOST;
-      enemy.vy = -enemy.vy * this.FILLED_BOUNCE_BOOST;
-      
-      // Add slight angle variation to prevent getting stuck
-      const angleVariation = (Math.random() - 0.5) * 0.4;
-      const cos = Math.cos(angleVariation);
-      const sin = Math.sin(angleVariation);
-      const newVx = enemy.vx * cos - enemy.vy * sin;
-      const newVy = enemy.vx * sin + enemy.vy * cos;
-      
-      enemy.vx = newVx;
-      enemy.vy = newVy;
-      
-      // Update base velocity
-      this.baseVelocities.set(index, {
-        vx: enemy.vx,
-        vy: enemy.vy
-      });
-      
       this.accelerateEnemy(enemy, index, currentTime);
     }
   }

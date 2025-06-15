@@ -99,17 +99,19 @@ export class TrailManager {
 
     console.log('Trail set:', Array.from(trailSet));
 
+    // IMPROVED: Fill trail cells immediately to create proper boundary
+    trailSet.forEach(cell => {
+      gameState.filledCells.add(cell);
+    });
+
     // Create boundary set that includes existing filled cells and the new trail
     const boundarySet = new Set<string>();
     
-    // Add existing filled cells to boundary (this includes the border)
+    // Add ALL filled cells to boundary (this includes the border + trail)
     gameState.filledCells.forEach(cell => boundarySet.add(cell));
-    
-    // Add trail to boundary (this creates the new enclosed boundary)
-    trailSet.forEach(cell => boundarySet.add(cell));
 
     console.log('Boundary set size:', boundarySet.size);
-    console.log('Filled cells before:', gameState.filledCells.size);
+    console.log('Filled cells before flood fill:', gameState.filledCells.size);
 
     // Find all empty areas using flood fill
     const visited = new Set<string>();
@@ -154,14 +156,6 @@ export class TrailManager {
             totalNewlyFilledCells++;
           }
         });
-      }
-    });
-
-    // Add trail cells to filled cells
-    trailSet.forEach(cell => {
-      if (!gameState.filledCells.has(cell)) {
-        gameState.filledCells.add(cell);
-        totalNewlyFilledCells++;
       }
     });
 
