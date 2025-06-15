@@ -13,6 +13,7 @@ export class GameLogic {
   private collisionDetector: CollisionDetector;
   private levelManager: LevelManager;
   private gridSize: number;
+  private levelTransitionTimer: number | null = null;
 
   constructor(gridSize: number, canvasWidth: number, canvasHeight: number) {
     this.gridSize = gridSize;
@@ -28,11 +29,20 @@ export class GameLogic {
 
     // Handle level transition state
     if (newState.isLevelTransition) {
-      // Allow a brief pause for level transition animation
-      setTimeout(() => {
-        this.levelManager.completeLevelTransition(newState);
-      }, 1500); // 1.5 second transition
+      // Only set the timer once
+      if (this.levelTransitionTimer === null) {
+        this.levelTransitionTimer = window.setTimeout(() => {
+          this.levelManager.completeLevelTransition(newState);
+          this.levelTransitionTimer = null;
+        }, 1500); // 1.5 second transition
+      }
       return newState;
+    }
+
+    // Clear any existing timer if we're not in transition
+    if (this.levelTransitionTimer !== null) {
+      clearTimeout(this.levelTransitionTimer);
+      this.levelTransitionTimer = null;
     }
 
     // Always ensure border is initialized - this handles both first run and restarts
