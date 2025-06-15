@@ -1,6 +1,6 @@
-
 import { GameState } from '../../types/game';
 import { FloodFill } from '../algorithms/FloodFill';
+import { audioManager } from '../AudioManager';
 
 export class TrailManager {
   private gridSize: number;
@@ -76,6 +76,9 @@ export class TrailManager {
       const currentPosStr = `${gridX},${gridY}`;
       if (!gameState.trail.some(pos => `${Math.floor(pos.x / this.gridSize)},${Math.floor(pos.y / this.gridSize)}` === currentPosStr)) {
         gameState.trail.push({ x: gridX * this.gridSize, y: gridY * this.gridSize });
+        
+        // Play subtle trail tick sound
+        audioManager.playTrailTick();
       }
     }
   }
@@ -183,6 +186,11 @@ export class TrailManager {
     console.log(`New area cells filled: ${totalNewlyFilledCells}`);
     console.log(`Largest filled area: ${largestFilledArea}`);
     console.log(`Total filled cells: ${gameState.filledCells.size}`);
+
+    // 🎵 THE MAGIC MOMENT: Play the incredibly satisfying area completion sound! 🎵
+    if (totalNewlyFilledCells > 0) {
+      audioManager.playAreaComplete(totalNewlyFilledCells);
+    }
 
     // Scoring system with exponential rewards
     if (totalNewlyFilledCells > 0) {

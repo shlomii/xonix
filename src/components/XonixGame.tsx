@@ -7,6 +7,7 @@ import { HighScoreManager } from '../utils/HighScoreManager';
 import HighScoreDialog from './HighScoreDialog';
 import HighScoreTable from './HighScoreTable';
 import LevelTransition from './LevelTransition';
+import { audioManager } from '../utils/AudioManager';
 
 const GRID_SIZE = 15; // Grid cell size in pixels
 const ASPECT_RATIO = 4 / 3; // Width to height ratio
@@ -32,6 +33,7 @@ const XonixGame: React.FC = () => {
   const [showHighScoreTable, setShowHighScoreTable] = useState(false);
   const [gameOverEnemies, setGameOverEnemies] = useState<GameOverEnemy[]>([]);
   const animationFrameRef = useRef<number>();
+  const [showAudioControls, setShowAudioControls] = useState(false);
   
   const [gameState, setGameState] = useState<GameState>({
     player: { x: 0, y: 0, vx: 0, vy: 0 },
@@ -331,6 +333,8 @@ const XonixGame: React.FC = () => {
   }, [gameOverEnemies, gameState.isAlive, showHighScoreEntry, showHighScoreTable]);
 
   const resetGame = () => {
+    audioManager.playButtonClick();
+    
     const centerX = Math.floor(canvasDimensions.width / 2);
     const centerY = Math.floor(canvasDimensions.height / 2);
     
@@ -355,12 +359,71 @@ const XonixGame: React.FC = () => {
     setGameOverEnemies([]);
   };
 
+  const handleHighScoresClick = () => {
+    audioManager.playButtonClick();
+    setShowHighScoreTable(true);
+  };
+
+  const toggleAudioControls = () => {
+    audioManager.playButtonClick();
+    setShowAudioControls(!showAudioControls);
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 p-4">
       <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border border-white/20 w-full max-w-none">
-        <h1 className="text-4xl font-bold text-white text-center mb-6 bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
-          XONIX
-        </h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-4xl font-bold text-white bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
+            XONIX
+          </h1>
+          
+          {/* Audio Controls */}
+          <div className="relative">
+            <button
+              onClick={toggleAudioControls}
+              className="text-white hover:text-yellow-400 transition-colors p-2"
+              title="Audio Settings"
+            >
+              🔊
+            </button>
+            
+            {showAudioControls && (
+              <div className="absolute right-0 top-12 bg-black/80 backdrop-blur-sm rounded-lg p-4 border border-white/20 z-10">
+                <div className="space-y-3 min-w-[200px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-white text-sm">Sound</span>
+                    <button
+                      onClick={() => {
+                        audioManager.setEnabled(!audioManager.getEnabled());
+                        audioManager.playButtonClick();
+                      }}
+                      className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
+                        audioManager.getEnabled() 
+                          ? 'bg-green-500 text-white' 
+                          : 'bg-red-500 text-white'
+                      }`}
+                    >
+                      {audioManager.getEnabled() ? 'ON' : 'OFF'}
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <span className="text-white text-sm">Volume</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={audioManager.getVolume()}
+                      onChange={(e) => audioManager.setVolume(parseFloat(e.target.value))}
+                      className="w-full accent-green-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
         
         <div className="relative mb-6 flex justify-center">
           <canvas
@@ -402,7 +465,7 @@ const XonixGame: React.FC = () => {
                     Play Again
                   </button>
                   <button
-                    onClick={() => setShowHighScoreTable(true)}
+                    onClick={handleHighScoresClick}
                     className="block mx-auto px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold rounded-lg hover:from-yellow-600 hover:to-orange-600 transition-all duration-200 transform hover:scale-105"
                   >
                     High Scores

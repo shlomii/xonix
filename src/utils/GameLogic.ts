@@ -5,6 +5,7 @@ import { EnemyPhysics } from './physics/EnemyPhysics';
 import { TrailManager } from './game/TrailManager';
 import { CollisionDetector } from './game/CollisionDetector';
 import { LevelManager } from './game/LevelManager';
+import { audioManager } from './AudioManager';
 
 export class GameLogic {
   private playerPhysics: PlayerPhysics;
@@ -53,14 +54,19 @@ export class GameLogic {
     // Update enemies
     this.enemyPhysics.updateEnemies(newState);
     
-    // Check collisions
+    // Check collisions and play game over sound if player dies
+    const wasAlive = newState.isAlive;
     this.collisionDetector.checkCollisions(newState);
+    if (wasAlive && !newState.isAlive) {
+      audioManager.playGameOver();
+    }
     
     // Update trail and check for area completion
     this.trailManager.updateTrail(newState);
     
-    // Check for level completion
+    // Check for level completion and play transition sound
     if (this.levelManager.checkLevelCompletion(newState)) {
+      audioManager.playLevelTransition();
       this.levelManager.advanceLevel(newState);
     }
     
