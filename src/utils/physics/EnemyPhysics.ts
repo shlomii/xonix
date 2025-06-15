@@ -1,3 +1,4 @@
+
 import { GameState } from '../../types/game';
 
 export class EnemyPhysics {
@@ -6,35 +7,18 @@ export class EnemyPhysics {
   private canvasHeight: number;
   private accelerationTimers: Map<number, number> = new Map();
   private baseVelocities: Map<number, {vx: number, vy: number}> = new Map();
-  private momentumFactors: Map<number, number> = new Map();
-  private beeState: Map<number, {
-    targetX: number;
-    targetY: number;
-    wanderAngle: number;
-    seekIntensity: number;
-    lastPlayerDistance: number;
-  }> = new Map();
-  
-  // Enhanced physics constants
-  private readonly ACCELERATION_FACTOR = 2.2;
-  private readonly DECELERATION_FACTOR = 0.985;
-  private readonly FRICTION_FACTOR = 0.995;
-  private readonly ACCELERATION_DURATION = 1200; // milliseconds
-  private readonly MIN_SPEED = 1.5;
-  private readonly MAX_SPEED = 4.0;
-  private readonly BASE_SPEED_VARIATION = 0.4; // Random speed variation
-  private readonly MOMENTUM_DECAY = 0.98;
-  private readonly WALL_BOUNCE_ENERGY_LOSS = 0.85;
-  private readonly FILLED_BOUNCE_ENERGY_GAIN = 1.15;
-  
-  // Bee behavior constants - adjusted for smoother movement
-  private readonly PLAYER_ATTRACTION_FORCE = 0.25;
-  private readonly WANDER_FORCE = 0.05;
-  private readonly SEPARATION_FORCE = 0.1;
-  private readonly SEEK_RADIUS = 300;
-  private readonly WANDER_RADIUS = 20;
-  private readonly CURVE_SMOOTHING = 0.08;
-  private readonly DIRECTION_CHANGE_RATE = 0.015;
+
+  // Simplified physics constants
+  private readonly BASE_SPEED = 2.0;
+  private readonly MAX_SPEED = 4.5;
+  private readonly MIN_SPEED = 1.0;
+  private readonly PLAYER_ATTRACTION_STRENGTH = 0.8;
+  private readonly EXPLORATION_FORCE = 0.3;
+  private readonly WALL_BOUNCE_DAMPING = 0.8;
+  private readonly FILLED_BOUNCE_BOOST = 1.1;
+  private readonly FRICTION = 0.99;
+  private readonly ACCELERATION_BOOST = 1.5;
+  private readonly SEEK_DISTANCE_THRESHOLD = 200;
 
   constructor(gridSize: number, canvasWidth: number, canvasHeight: number) {
     this.gridSize = gridSize;
@@ -48,243 +32,133 @@ export class EnemyPhysics {
     const currentTime = Date.now();
 
     gameState.enemies.forEach((enemy, index) => {
-      // Initialize bee state for new enemies
-      if (!this.beeState.has(index)) {
-        this.beeState.set(index, {
-          targetX: enemy.x,
-          targetY: enemy.y,
-          wanderAngle: Math.random() * Math.PI * 2,
-          seekIntensity: 0.8 + Math.random() * 0.2,
-          lastPlayerDistance: 0
+      // Initialize base velocity for new enemies
+      if (!this.baseVelocities.has(index)) {
+        const angle = Math.random() * Math.PI * 2;
+        this.baseVelocities.set(index, {
+          vx: Math.cos(angle) * this.BASE_SPEED,
+          vy: Math.sin(angle) * this.BASE_SPEED
         });
       }
 
-      // Initialize base velocity and momentum for new enemies
-      if (!this.baseVelocities.has(index)) {
-        this.baseVelocities.set(index, { vx: enemy.vx, vy: enemy.vy });
-        this.momentumFactors.set(index, 1.0);
-      }
+      // Calculate player attraction
+      this.applyPlayerAttraction(enemy, gameState.player);
 
-      // Apply bee-like intelligent movement
-      this.applyBeeMovement(enemy, index, gameState.player, gameState.enemies);
+      // Add exploration behavior when far from player
+      this.applyExplorationBehavior(enemy, gameState.player, index);
 
-      // Handle acceleration/deceleration cycles
-      this.handleAccelerationCycle(enemy, index, currentTime);
+      // Apply gentle friction
+      enemy.vx *= this.FRICTION;
+      enemy.vy *= this.FRICTION;
 
-      // Apply friction to simulate air resistance
-      this.applyFriction(enemy);
-
-      // Update position with current velocity
+      // Update position
       enemy.x += enemy.vx;
       enemy.y += enemy.vy;
 
-      // Handle wall collisions with energy loss
+      // Handle collisions
       this.handleWallCollisions(enemy, index, currentTime);
-
-      // Handle filled area collisions with energy gain
       this.handleFilledAreaCollisions(enemy, index, currentTime, gameState, gridWidth, gridHeight);
 
-      // Ensure minimum speed is maintained
-      this.enforceSpeedLimits(enemy);
+      // Enforce speed limits
+      this.enforceSpeedLimits(enemy, index);
     });
   }
 
-  private applyBeeMovement(
-    enemy: { vx: number; vy: number; x: number; y: number }, 
-    index: number, 
-    player: { x: number; y: number },
-    allEnemies: Array<{ x: number; y: number }>
+  private applyPlayerAttraction(
+    enemy: { vx: number; vy: number; x: number; y: number },
+    player: { x: number; y: number }
   ) {
-    const beeState = this.beeState.get(index)!;
-    
-    // Calculate distance to player
-    const distanceToPlayer = Math.sqrt(
-      Math.pow(enemy.x - player.x, 2) + Math.pow(enemy.y - player.y, 2)
-    );
-    
-    // Calculate forces
-    const playerForce = this.calculatePlayerAttraction(enemy, player, distanceToPlayer);
-    const wanderForce = this.calculateWanderForce(enemy, beeState);
-    const separationForce = this.calculateSeparationForce(enemy, allEnemies, index);
-    
-    // Weight forces based on distance to player - stronger attraction when closer
-    let playerWeight = 0.7; // Base attraction
-    let wanderWeight = 0.2;
-    let separationWeight = 0.6;
-    
-    // Increase player attraction significantly when within seek radius
-    if (distanceToPlayer < this.SEEK_RADIUS) {
-      playerWeight = 0.9;
-      wanderWeight = 0.1;
-    }
-    
-    // Apply forces with smooth steering
-    const desiredVx = (playerForce.x * playerWeight + wanderForce.x * wanderWeight + separationForce.x * separationWeight);
-    const desiredVy = (playerForce.y * playerWeight + wanderForce.y * wanderWeight + separationForce.y * separationWeight);
-    
-    // Smooth steering using interpolation for curved movement
-    enemy.vx += (desiredVx - enemy.vx) * this.CURVE_SMOOTHING;
-    enemy.vy += (desiredVy - enemy.vy) * this.CURVE_SMOOTHING;
-    
-    // Add subtle organic variations to simulate bee-like movement
-    const time = Date.now() * 0.003;
-    const buzzVariationX = Math.sin(time + index * 2.1) * 0.15;
-    const buzzVariationY = Math.cos(time * 1.3 + index * 1.7) * 0.15;
-    
-    enemy.vx += buzzVariationX;
-    enemy.vy += buzzVariationY;
-    
-    // Update wander angle for next frame
-    beeState.wanderAngle += (Math.random() - 0.5) * this.DIRECTION_CHANGE_RATE;
-    beeState.lastPlayerDistance = distanceToPlayer;
-  }
-
-  private calculatePlayerAttraction(
-    enemy: { x: number; y: number }, 
-    player: { x: number; y: number },
-    distance: number
-  ): { x: number; y: number } {
-    if (distance === 0) return { x: 0, y: 0 };
-    
     const dx = player.x - enemy.x;
     const dy = player.y - enemy.y;
-    
-    // Normalize direction
-    const normalizedX = dx / distance;
-    const normalizedY = dy / distance;
-    
-    // Apply stronger attraction force that decreases with distance
-    const attractionStrength = this.PLAYER_ATTRACTION_FORCE * Math.min(1.0, 200 / distance);
-    
-    return {
-      x: normalizedX * attractionStrength,
-      y: normalizedY * attractionStrength
-    };
-  }
-
-  private calculateWanderForce(
-    enemy: { x: number; y: number; vx: number; vy: number },
-    beeState: { wanderAngle: number; targetX: number; targetY: number }
-  ): { x: number; y: number } {
-    // Create a circular wander target ahead of the enemy
-    const wanderDistance = 40;
-    const speed = Math.sqrt(enemy.vx * enemy.vx + enemy.vy * enemy.vy);
-    const normalizedVx = speed > 0 ? enemy.vx / speed : 1;
-    const normalizedVy = speed > 0 ? enemy.vy / speed : 0;
-    
-    const centerX = enemy.x + normalizedVx * wanderDistance;
-    const centerY = enemy.y + normalizedVy * wanderDistance;
-    
-    const targetX = centerX + Math.cos(beeState.wanderAngle) * this.WANDER_RADIUS;
-    const targetY = centerY + Math.sin(beeState.wanderAngle) * this.WANDER_RADIUS;
-    
-    const dx = targetX - enemy.x;
-    const dy = targetY - enemy.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    
-    if (distance === 0) return { x: 0, y: 0 };
-    
-    return {
-      x: (dx / distance) * this.WANDER_FORCE,
-      y: (dy / distance) * this.WANDER_FORCE
-    };
+
+    if (distance > 0) {
+      // Normalize direction
+      const normalizedX = dx / distance;
+      const normalizedY = dy / distance;
+
+      // Strong attraction force that's always active
+      const attractionForce = this.PLAYER_ATTRACTION_STRENGTH;
+      
+      // Apply attraction
+      enemy.vx += normalizedX * attractionForce;
+      enemy.vy += normalizedY * attractionForce;
+    }
   }
 
-  private calculateSeparationForce(
-    enemy: { x: number; y: number },
-    allEnemies: Array<{ x: number; y: number }>,
-    currentIndex: number
-  ): { x: number; y: number } {
-    let separationX = 0;
-    let separationY = 0;
-    let neighborCount = 0;
-    const separationRadius = 35;
-    
-    allEnemies.forEach((otherEnemy, index) => {
-      if (index === currentIndex) return;
-      
-      const dx = enemy.x - otherEnemy.x;
-      const dy = enemy.y - otherEnemy.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      if (distance > 0 && distance < separationRadius) {
-        const separationStrength = (separationRadius - distance) / separationRadius;
-        separationX += (dx / distance) * separationStrength;
-        separationY += (dy / distance) * separationStrength;
-        neighborCount++;
+  private applyExplorationBehavior(
+    enemy: { vx: number; vy: number; x: number; y: number },
+    player: { x: number; y: number },
+    index: number
+  ) {
+    const dx = player.x - enemy.x;
+    const dy = player.y - enemy.y;
+    const distanceToPlayer = Math.sqrt(dx * dx + dy * dy);
+
+    // When far from player, add exploration behavior
+    if (distanceToPlayer > this.SEEK_DISTANCE_THRESHOLD) {
+      const baseVel = this.baseVelocities.get(index);
+      if (baseVel) {
+        // Add some of the base velocity back for exploration
+        enemy.vx += baseVel.vx * this.EXPLORATION_FORCE;
+        enemy.vy += baseVel.vy * this.EXPLORATION_FORCE;
       }
-    });
-    
-    if (neighborCount > 0) {
-      separationX = (separationX / neighborCount) * this.SEPARATION_FORCE;
-      separationY = (separationY / neighborCount) * this.SEPARATION_FORCE;
-    }
-    
-    return { x: separationX, y: separationY };
-  }
 
-  private handleAccelerationCycle(enemy: { vx: number; vy: number }, index: number, currentTime: number) {
-    const accelerationStartTime = this.accelerationTimers.get(index);
-    
-    if (accelerationStartTime) {
-      const timeSinceAcceleration = currentTime - accelerationStartTime;
+      // Add random exploration force
+      const time = Date.now() * 0.001;
+      const explorationX = Math.sin(time + index * 2.3) * 0.5;
+      const explorationY = Math.cos(time * 1.1 + index * 1.9) * 0.5;
       
-      if (timeSinceAcceleration < this.ACCELERATION_DURATION) {
-        const momentum = this.momentumFactors.get(index) || 1.0;
-        const accelerationProgress = timeSinceAcceleration / this.ACCELERATION_DURATION;
-        const boostFactor = 1 + (momentum * 0.3 * (1 - accelerationProgress));
-        
-        enemy.vx *= boostFactor;
-        enemy.vy *= boostFactor;
-      } else {
-        const currentSpeed = Math.sqrt(enemy.vx * enemy.vx + enemy.vy * enemy.vy);
-        if (currentSpeed > this.MIN_SPEED * 1.2) {
-          const decelerationFactor = this.DECELERATION_FACTOR + (Math.random() * 0.01 - 0.005);
-          enemy.vx *= decelerationFactor;
-          enemy.vy *= decelerationFactor;
-          
-          const currentMomentum = this.momentumFactors.get(index) || 1.0;
-          this.momentumFactors.set(index, currentMomentum * this.MOMENTUM_DECAY);
-        } else {
-          this.accelerationTimers.delete(index);
-        }
-      }
+      enemy.vx += explorationX;
+      enemy.vy += explorationY;
     }
   }
 
-  private applyFriction(enemy: { vx: number; vy: number }) {
-    enemy.vx *= this.FRICTION_FACTOR;
-    enemy.vy *= this.FRICTION_FACTOR;
-  }
+  private handleWallCollisions(
+    enemy: { vx: number; vy: number; x: number; y: number },
+    index: number,
+    currentTime: number
+  ) {
+    let bounced = false;
 
-  private handleWallCollisions(enemy: { vx: number; vy: number; x: number; y: number }, index: number, currentTime: number) {
-    let wallBounce = false;
-    
-    if (enemy.x <= 0 || enemy.x >= this.canvasWidth - this.gridSize) {
-      enemy.vx = -enemy.vx * this.WALL_BOUNCE_ENERGY_LOSS;
-      enemy.x = Math.max(0, Math.min(this.canvasWidth - this.gridSize, enemy.x));
-      wallBounce = true;
-    }
-    
-    if (enemy.y <= 0 || enemy.y >= this.canvasHeight - this.gridSize) {
-      enemy.vy = -enemy.vy * this.WALL_BOUNCE_ENERGY_LOSS;
-      enemy.y = Math.max(0, Math.min(this.canvasHeight - this.gridSize, enemy.y));
-      wallBounce = true;
+    // Horizontal walls
+    if (enemy.x <= 0) {
+      enemy.x = 0;
+      enemy.vx = Math.abs(enemy.vx) * this.WALL_BOUNCE_DAMPING;
+      bounced = true;
+    } else if (enemy.x >= this.canvasWidth - this.gridSize) {
+      enemy.x = this.canvasWidth - this.gridSize;
+      enemy.vx = -Math.abs(enemy.vx) * this.WALL_BOUNCE_DAMPING;
+      bounced = true;
     }
 
-    if (wallBounce) {
-      const randomFactor = 0.9 + Math.random() * 0.2;
-      enemy.vx *= randomFactor;
-      enemy.vy *= randomFactor * 0.95;
+    // Vertical walls
+    if (enemy.y <= 0) {
+      enemy.y = 0;
+      enemy.vy = Math.abs(enemy.vy) * this.WALL_BOUNCE_DAMPING;
+      bounced = true;
+    } else if (enemy.y >= this.canvasHeight - this.gridSize) {
+      enemy.y = this.canvasHeight - this.gridSize;
+      enemy.vy = -Math.abs(enemy.vy) * this.WALL_BOUNCE_DAMPING;
+      bounced = true;
+    }
+
+    if (bounced) {
+      // Update base velocity when bouncing
+      this.baseVelocities.set(index, {
+        vx: enemy.vx,
+        vy: enemy.vy
+      });
       
-      this.accelerateEnemy(enemy, index, currentTime, 0.8);
+      // Small acceleration boost after bouncing
+      this.accelerateEnemy(enemy, index, currentTime);
     }
   }
 
   private handleFilledAreaCollisions(
-    enemy: { vx: number; vy: number; x: number; y: number }, 
-    index: number, 
-    currentTime: number, 
+    enemy: { vx: number; vy: number; x: number; y: number },
+    index: number,
+    currentTime: number,
     gameState: GameState,
     gridWidth: number,
     gridHeight: number
@@ -292,13 +166,16 @@ export class EnemyPhysics {
     const gridX = Math.floor(enemy.x / this.gridSize);
     const gridY = Math.floor(enemy.y / this.gridSize);
     
+    // Don't bounce off border cells, only filled interior cells
     const isBorderCell = gridX === 0 || gridX === gridWidth - 1 || gridY === 0 || gridY === gridHeight - 1;
     
     if (!isBorderCell && gameState.filledCells.has(`${gridX},${gridY}`)) {
-      enemy.vx = -enemy.vx * this.FILLED_BOUNCE_ENERGY_GAIN;
-      enemy.vy = -enemy.vy * this.FILLED_BOUNCE_ENERGY_GAIN;
+      // Bounce with energy boost
+      enemy.vx = -enemy.vx * this.FILLED_BOUNCE_BOOST;
+      enemy.vy = -enemy.vy * this.FILLED_BOUNCE_BOOST;
       
-      const angleVariation = (Math.random() - 0.5) * 0.3;
+      // Add slight angle variation to prevent getting stuck
+      const angleVariation = (Math.random() - 0.5) * 0.4;
       const cos = Math.cos(angleVariation);
       const sin = Math.sin(angleVariation);
       const newVx = enemy.vx * cos - enemy.vy * sin;
@@ -307,40 +184,62 @@ export class EnemyPhysics {
       enemy.vx = newVx;
       enemy.vy = newVy;
       
-      this.accelerateEnemy(enemy, index, currentTime, 1.2);
+      // Update base velocity
+      this.baseVelocities.set(index, {
+        vx: enemy.vx,
+        vy: enemy.vy
+      });
+      
+      this.accelerateEnemy(enemy, index, currentTime);
     }
   }
 
-  private accelerateEnemy(enemy: { vx: number; vy: number }, index: number, currentTime: number, intensityFactor: number = 1.0) {
+  private accelerateEnemy(
+    enemy: { vx: number; vy: number },
+    index: number,
+    currentTime: number
+  ) {
     const currentSpeed = Math.sqrt(enemy.vx * enemy.vx + enemy.vy * enemy.vy);
     
-    if (currentSpeed >= this.MAX_SPEED) return;
-    
-    const accelerationFactor = this.ACCELERATION_FACTOR * intensityFactor;
-    enemy.vx *= accelerationFactor;
-    enemy.vy *= accelerationFactor;
-    
-    const newSpeed = Math.sqrt(enemy.vx * enemy.vx + enemy.vy * enemy.vy);
-    if (newSpeed > this.MAX_SPEED) {
-      const speedRatio = this.MAX_SPEED / newSpeed;
-      enemy.vx *= speedRatio;
-      enemy.vy *= speedRatio;
+    if (currentSpeed < this.MAX_SPEED) {
+      enemy.vx *= this.ACCELERATION_BOOST;
+      enemy.vy *= this.ACCELERATION_BOOST;
+      
+      // Cap at max speed
+      const newSpeed = Math.sqrt(enemy.vx * enemy.vx + enemy.vy * enemy.vy);
+      if (newSpeed > this.MAX_SPEED) {
+        const speedRatio = this.MAX_SPEED / newSpeed;
+        enemy.vx *= speedRatio;
+        enemy.vy *= speedRatio;
+      }
+      
+      this.accelerationTimers.set(index, currentTime);
     }
-    
-    this.accelerationTimers.set(index, currentTime);
-    const currentMomentum = this.momentumFactors.get(index) || 1.0;
-    this.momentumFactors.set(index, Math.min(currentMomentum * 1.1, 2.0));
   }
 
-  private enforceSpeedLimits(enemy: { vx: number; vy: number }) {
+  private enforceSpeedLimits(
+    enemy: { vx: number; vy: number },
+    index: number
+  ) {
     const currentSpeed = Math.sqrt(enemy.vx * enemy.vx + enemy.vy * enemy.vy);
     
+    // Ensure minimum speed
     if (currentSpeed < this.MIN_SPEED) {
-      const speedRatio = this.MIN_SPEED / currentSpeed;
-      enemy.vx *= speedRatio;
-      enemy.vy *= speedRatio;
+      const baseVel = this.baseVelocities.get(index);
+      if (baseVel) {
+        // Restore some base velocity if too slow
+        const factor = this.MIN_SPEED / Math.max(currentSpeed, 0.1);
+        enemy.vx = baseVel.vx * factor;
+        enemy.vy = baseVel.vy * factor;
+      } else {
+        // Fallback: give random direction at minimum speed
+        const angle = Math.random() * Math.PI * 2;
+        enemy.vx = Math.cos(angle) * this.MIN_SPEED;
+        enemy.vy = Math.sin(angle) * this.MIN_SPEED;
+      }
     }
     
+    // Enforce maximum speed
     if (currentSpeed > this.MAX_SPEED) {
       const speedRatio = this.MAX_SPEED / currentSpeed;
       enemy.vx *= speedRatio;
