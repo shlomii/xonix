@@ -1,4 +1,3 @@
-
 import { GameState } from '../../types/game';
 
 export class EnemyPhysics {
@@ -8,16 +7,16 @@ export class EnemyPhysics {
   private accelerationTimers: Map<number, number> = new Map();
   private baseVelocities: Map<number, {vx: number, vy: number}> = new Map();
 
-  // Simplified physics constants
-  private readonly BASE_SPEED = 2.0;
-  private readonly MAX_SPEED = 4.5;
-  private readonly MIN_SPEED = 1.0;
-  private readonly PLAYER_ATTRACTION_STRENGTH = 0.8;
-  private readonly EXPLORATION_FORCE = 0.3;
+  // Reduced physics constants for slower, more manageable enemies
+  private readonly BASE_SPEED = 0.8;
+  private readonly MAX_SPEED = 2.0;
+  private readonly MIN_SPEED = 0.5;
+  private readonly PLAYER_ATTRACTION_STRENGTH = 0.3;
+  private readonly EXPLORATION_FORCE = 0.2;
   private readonly WALL_BOUNCE_DAMPING = 0.8;
   private readonly FILLED_BOUNCE_BOOST = 1.1;
   private readonly FRICTION = 0.99;
-  private readonly ACCELERATION_BOOST = 1.5;
+  private readonly ACCELERATION_BOOST = 1.2;
   private readonly SEEK_DISTANCE_THRESHOLD = 200;
 
   constructor(gridSize: number, canvasWidth: number, canvasHeight: number) {
