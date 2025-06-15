@@ -59,8 +59,21 @@ export class PlayerPhysics {
     player.x = Math.max(0, Math.min(this.canvasWidth - this.gridSize, player.x));
     player.y = Math.max(0, Math.min(this.canvasHeight - this.gridSize, player.y));
 
+    // GRID SNAPPING: Snap player position to grid centers for perfect trail alignment
+    this.snapToGrid(player);
+
     // Stop very small movements for cleaner control
     if (Math.abs(player.vx) < 0.2) player.vx = 0;
     if (Math.abs(player.vy) < 0.2) player.vy = 0;
+  }
+
+  private snapToGrid(player: { x: number; y: number }) {
+    // Calculate the grid position the player should be in
+    const gridX = Math.round(player.x / this.gridSize);
+    const gridY = Math.round(player.y / this.gridSize);
+    
+    // Snap to the center of that grid cell
+    player.x = gridX * this.gridSize;
+    player.y = gridY * this.gridSize;
   }
 }

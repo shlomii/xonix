@@ -1,4 +1,3 @@
-
 import { GameState } from '../../types/game';
 
 export class EnemyPhysics {
@@ -9,16 +8,16 @@ export class EnemyPhysics {
   private baseVelocities: Map<number, {vx: number, vy: number}> = new Map();
 
   // Enhanced physics constants for smoother and faster gameplay
-  private readonly BASE_SPEED = 1.2; // Increased from 0.8
-  private readonly MAX_SPEED = 5.5; // Increased from 4.0
+  private readonly BASE_SPEED = 1.2;
+  private readonly MAX_SPEED = 5.5;
   private readonly MIN_SPEED = 0.3;
   private readonly PLAYER_ATTRACTION_STRENGTH = 0.08;
   private readonly EXPLORATION_FORCE = 0.08;
-  private readonly WALL_BOUNCE_DAMPING = 0.96; // Increased for smoother bounces
-  private readonly FILLED_BOUNCE_BOOST = 3.2; // Increased for more dynamic bounces
-  private readonly ENEMY_COLLISION_BOOST = 2.5; // Increased for better separation
-  private readonly FRICTION = 0.985; // Increased for smoother deceleration
-  private readonly ACCELERATION_BOOST = 1.8; // Increased for better acceleration
+  private readonly WALL_BOUNCE_DAMPING = 0.96;
+  private readonly FILLED_BOUNCE_BOOST = 3.2;
+  private readonly ENEMY_COLLISION_BOOST = 2.5;
+  private readonly FRICTION = 0.985;
+  private readonly ACCELERATION_BOOST = 1.8;
   private readonly SEEK_DISTANCE_THRESHOLD = 150;
   private readonly ACCELERATION_DECAY_TIME = 2000;
   private readonly ENEMY_COLLISION_RADIUS = 20;
@@ -38,44 +37,43 @@ export class EnemyPhysics {
       // Initialize base velocity for new enemies
       if (!this.baseVelocities.has(index)) {
         const angle = Math.random() * Math.PI * 2;
-        const levelSpeedMultiplier = 1 + (gameState.level - 1) * 0.2; // Increased multiplier
+        const levelSpeedMultiplier = 1 + (gameState.level - 1) * 0.2;
         this.baseVelocities.set(index, {
           vx: Math.cos(angle) * this.BASE_SPEED * levelSpeedMultiplier,
           vy: Math.sin(angle) * this.BASE_SPEED * levelSpeedMultiplier
         });
       }
 
-      // Apply magnetic forces from bombs if available
+      // Apply magnetic forces from bombs if available - ENHANCED PRIORITY
+      let isMagneticallyAttracted = false;
       if (getMagneticForce) {
         const magneticForce = getMagneticForce(enemy.x, enemy.y, gameState);
         if (Math.abs(magneticForce.fx) > 0.01 || Math.abs(magneticForce.fy) > 0.01) {
-          // Strong magnetic attraction overrides normal movement
-          enemy.vx += magneticForce.fx;
-          enemy.vy += magneticForce.fy;
+          // VERY strong magnetic attraction completely overrides normal movement
+          enemy.vx = magneticForce.fx * 3; // Multiply by 3 for even stronger attraction
+          enemy.vy = magneticForce.fy * 3;
           this.accelerationTimers.set(index, currentTime);
+          isMagneticallyAttracted = true;
           
-          // Cap speed when being magnetically attracted
+          // Higher speed cap when being magnetically attracted
           const magneticSpeed = Math.sqrt(enemy.vx * enemy.vx + enemy.vy * enemy.vy);
-          if (magneticSpeed > this.MAX_SPEED * 1.5) {
-            const speedRatio = (this.MAX_SPEED * 1.5) / magneticSpeed;
+          if (magneticSpeed > this.MAX_SPEED * 2) { // Increased from 1.5 to 2
+            const speedRatio = (this.MAX_SPEED * 2) / magneticSpeed;
             enemy.vx *= speedRatio;
             enemy.vy *= speedRatio;
           }
         }
       }
 
-      // Apply smoother deceleration
-      this.applySmoothDeceleration(enemy, index, currentTime);
-
-      // Check for enemy-to-enemy collisions
-      this.checkEnemyCollisions(enemy, index, gameState.enemies, currentTime);
-
-      // Apply subtle player attraction only when far away and moving slowly (unless magnetically attracted)
-      const isMagneticallyAttracted = getMagneticForce && 
-        (Math.abs(getMagneticForce(enemy.x, enemy.y, gameState).fx) > 0.01 || 
-         Math.abs(getMagneticForce(enemy.x, enemy.y, gameState).fy) > 0.01);
-      
+      // Only apply other behaviors if NOT magnetically attracted
       if (!isMagneticallyAttracted) {
+        // Apply smoother deceleration
+        this.applySmoothDeceleration(enemy, index, currentTime);
+
+        // Check for enemy-to-enemy collisions
+        this.checkEnemyCollisions(enemy, index, gameState.enemies, currentTime);
+
+        // Apply subtle player attraction only when far away and moving slowly
         this.applyConditionalPlayerAttraction(enemy, gameState.player, index);
         this.applyMinimalExploration(enemy, index, currentTime);
       }
@@ -104,19 +102,16 @@ export class EnemyPhysics {
   }
 
   private applySmoothDeceleration(enemy: { vx: number; vy: number }, index: number, currentTime: number) {
-    // Apply smoother friction
     enemy.vx *= this.FRICTION;
     enemy.vy *= this.FRICTION;
 
-    // Apply acceleration decay with smoother transition
     const lastAcceleration = this.accelerationTimers.get(index);
     if (lastAcceleration) {
       const timeSinceAcceleration = currentTime - lastAcceleration;
       if (timeSinceAcceleration > this.ACCELERATION_DECAY_TIME) {
-        // Gradually return to base speed with smoother interpolation
         const baseVel = this.baseVelocities.get(index);
         if (baseVel) {
-          const decayFactor = 0.988; // Smoother decay
+          const decayFactor = 0.988;
           enemy.vx = enemy.vx * decayFactor + baseVel.vx * (1 - decayFactor);
           enemy.vy = enemy.vy * decayFactor + baseVel.vy * (1 - decayFactor);
         }

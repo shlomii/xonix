@@ -1,4 +1,3 @@
-
 import { GameState, Surprise, Position } from '../../types/game';
 import { audioManager } from '../AudioManager';
 
@@ -26,7 +25,7 @@ export class SurpriseManager {
           type: 'timeBomb',
           state: 'inactive',
           timer: 0,
-          maxTimer: 300, // 5 seconds at 60fps
+          maxTimer: 600, // Increased from 300 to 600 frames (10 seconds at 60fps)
           x: position.x,
           y: position.y
         };
@@ -137,13 +136,13 @@ export class SurpriseManager {
     if (surprise.type === 'timeBomb') {
       surprise.state = 'activated';
       surprise.timer = 0;
-      // Transition to magnetic after a brief delay
+      // Transition to magnetic after a brief delay (reduced from 500ms to 200ms)
       setTimeout(() => {
         if (surprise.state === 'activated') {
           surprise.state = 'magnetic';
           audioManager.playBombMagnetic();
         }
-      }, 500);
+      }, 200);
       
       audioManager.playBombCollect();
       gameState.score += 50; // Bonus for collecting
@@ -195,7 +194,7 @@ export class SurpriseManager {
     console.log(`💥 BOOM! Enemy eliminated by time-bomb! Score: +${200 * gameState.level}`);
   }
 
-  // Get magnetic force for enemies (used by EnemyPhysics)
+  // Get magnetic force for enemies (used by EnemyPhysics) - ENHANCED
   getMagneticForce(enemyX: number, enemyY: number, gameState: GameState): {fx: number, fy: number} {
     let totalFx = 0;
     let totalFy = 0;
@@ -212,9 +211,9 @@ export class SurpriseManager {
       const dy = bombCenterY - enemyCenterY;
       const distance = Math.sqrt(dx * dx + dy * dy);
       
-      if (distance > 0 && distance < this.gridSize * 8) { // Magnetic range
-        const magneticStrength = 0.3; // Strong attraction
-        const force = magneticStrength * (1 / (distance * 0.01)); // Stronger when closer
+      if (distance > 0 && distance < this.gridSize * 12) { // Increased range from 8 to 12
+        const magneticStrength = 1.2; // Increased from 0.3 to 1.2
+        const force = magneticStrength / Math.max(distance * 0.005, 1); // Better force calculation
         
         totalFx += (dx / distance) * force;
         totalFy += (dy / distance) * force;
