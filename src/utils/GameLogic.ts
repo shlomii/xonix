@@ -11,7 +11,6 @@ export class GameLogic {
   private trailManager: TrailManager;
   private collisionDetector: CollisionDetector;
   private gridSize: number;
-  private initialized: boolean = false;
 
   constructor(gridSize: number, canvasWidth: number, canvasHeight: number) {
     this.gridSize = gridSize;
@@ -24,10 +23,9 @@ export class GameLogic {
   updateGame(gameState: GameState): GameState {
     const newState = { ...gameState };
 
-    // Initialize border on first update
-    if (!this.initialized) {
+    // Always ensure border is initialized - this handles both first run and restarts
+    if (newState.filledCells.size === 0) {
       this.trailManager.initializeBorder(newState);
-      this.initialized = true;
     }
 
     // Update player movement with physics
