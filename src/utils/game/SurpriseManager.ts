@@ -1,11 +1,20 @@
 import { GameState, Surprise, Position } from '../../types/game';
 import { audioManager } from '../AudioManager';
 
+interface StuckEnemy {
+  enemyIndex: number;
+  bombId: string;
+  stuckTime: number;
+  maxStuckTime: number;
+  originalVelocity: { vx: number; vy: number };
+}
+
 export class SurpriseManager {
   private gridSize: number;
   private canvasWidth: number;
   private canvasHeight: number;
   private surpriseIdCounter: number = 0;
+  private stuckEnemies: StuckEnemy[] = [];
 
   constructor(gridSize: number, canvasWidth: number, canvasHeight: number) {
     this.gridSize = gridSize;
@@ -93,6 +102,9 @@ export class SurpriseManager {
       }
     });
 
+    // Update stuck enemies
+    this.updateStuckEnemies(gameState);
+
     // Remove exploded surprises
     gameState.surprises = gameState.surprises.filter(surprise => surprise.state !== 'exploded');
   }
@@ -103,10 +115,46 @@ export class SurpriseManager {
       case 'magnetic':
         bomb.timer++;
         if (bomb.timer >= bomb.maxTimer) {
-          // Bomb expires without explosion
+          // Bomb expires - release all stuck enemies
+          this.releaseBombEnemies(bomb.id, gameState);
           bomb.state = 'exploded';
         }
         break;
+    }
+  }
+
+  private updateStuckEnemies(gameState: GameState) {
+    for (let i = this.stuckEnemies.length - 1; i >= 0; i--) {
+      const stuckEnemy = this.stuckEnemies[i];
+      stuckEnemy.stuckTime++;
+
+      // Check if enemy should be released
+      if (stuckEnemy.stuckTime >= stuckEnemy.maxStuckTime) {
+        this.releaseStuckEnemy(i, gameState);
+      }
+    }
+  }
+
+  private releaseStuckEnemy(stuckIndex: number, gameState: GameState) {
+    const stuckEnemy = this.stuckEnemies[stuckIndex];
+    const enemy = gameState.enemies[stuckEnemy.enemyIndex];
+    
+    if (enemy) {
+      // Restore original velocity with some randomization
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.sqrt(stuckEnemy.originalVelocity.vx ** 2 + stuckEnemy.originalVelocity.vy ** 2);
+      enemy.vx = Math.cos(angle) * speed;
+      enemy.vy = Math.sin(angle) * speed;
+    }
+    
+    this.stuckEnemies.splice(stuckIndex, 1);
+  }
+
+  private releaseBombEnemies(bombId: string, gameState: GameState) {
+    for (let i = this.stuckEnemies.length - 1; i >= 0; i--) {
+      if (this.stuckEnemies[i].bombId === bombId) {
+        this.releaseStuckEnemy(i, gameState);
+      }
     }
   }
 
@@ -149,16 +197,19 @@ export class SurpriseManager {
     }
   }
 
-  // Check if enemies collide with magnetic bombs - FIXED to bounce instead of explode
+  // Check if enemies collide with magnetic bombs - UPDATED to stick enemies
   checkEnemyBombCollisions(gameState: GameState) {
     const magneticBombs = gameState.surprises.filter(s => s.state === 'magnetic');
     
     magneticBombs.forEach(bomb => {
       const bombCenterX = bomb.x + this.gridSize / 2;
       const bombCenterY = bomb.y + this.gridSize / 2;
-      const collisionRadius = this.gridSize * 0.6; // Slightly smaller collision radius
+      const collisionRadius = this.gridSize * 0.8; // Slightly larger for easier sticking
 
-      gameState.enemies.forEach(enemy => {
+      gameState.enemies.forEach((enemy, enemyIndex) => {
+        // Skip if enemy is already stuck
+        if (this.stuckEnemies.find(se => se.enemyIndex === enemyIndex)) return;
+
         const enemyCenterX = enemy.x + this.gridSize / 2;
         const enemyCenterY = enemy.y + this.gridSize / 2;
         
@@ -168,49 +219,65 @@ export class SurpriseManager {
         );
 
         if (distance < collisionRadius) {
-          // Bounce enemy away from bomb
-          this.bounceEnemyFromBomb(enemy, bomb);
+          // Stick enemy to bomb
+          this.stickEnemyToBomb(enemy, enemyIndex, bomb, gameState);
         }
       });
     });
   }
 
-  private bounceEnemyFromBomb(enemy: { x: number; y: number; vx: number; vy: number }, bomb: Surprise) {
+  private stickEnemyToBomb(enemy: { x: number; y: number; vx: number; vy: number }, enemyIndex: number, bomb: Surprise, gameState: GameState) {
+    // Store original velocity
+    const originalVelocity = { vx: enemy.vx, vy: enemy.vy };
+    
+    // Stop enemy movement
+    enemy.vx = 0;
+    enemy.vy = 0;
+    
+    // Position enemy close to bomb
     const bombCenterX = bomb.x + this.gridSize / 2;
     const bombCenterY = bomb.y + this.gridSize / 2;
-    const enemyCenterX = enemy.x + this.gridSize / 2;
-    const enemyCenterY = enemy.y + this.gridSize / 2;
+    const stickDistance = this.gridSize * 0.7;
     
-    // Calculate bounce direction (away from bomb)
-    const dx = enemyCenterX - bombCenterX;
-    const dy = enemyCenterY - bombCenterY;
+    // Find direction from bomb to enemy
+    const dx = enemy.x + this.gridSize / 2 - bombCenterX;
+    const dy = enemy.y + this.gridSize / 2 - bombCenterY;
     const distance = Math.sqrt(dx * dx + dy * dy);
     
     if (distance > 0) {
-      // Normalize direction
       const normalX = dx / distance;
       const normalY = dy / distance;
       
-      // Apply bounce force
-      const bounceStrength = 3;
-      enemy.vx = normalX * bounceStrength;
-      enemy.vy = normalY * bounceStrength;
-      
-      // Push enemy away to prevent stuck collision
-      const pushDistance = this.gridSize * 0.7;
-      enemy.x = bombCenterX + normalX * pushDistance - this.gridSize / 2;
-      enemy.y = bombCenterY + normalY * pushDistance - this.gridSize / 2;
-      
-      // Keep enemy in bounds
-      enemy.x = Math.max(0, Math.min(enemy.x, this.canvasWidth - this.gridSize));
-      enemy.y = Math.max(0, Math.min(enemy.y, this.canvasHeight - this.gridSize));
+      enemy.x = bombCenterX + normalX * stickDistance - this.gridSize / 2;
+      enemy.y = bombCenterY + normalY * stickDistance - this.gridSize / 2;
     }
+    
+    // Add to stuck enemies list
+    this.stuckEnemies.push({
+      enemyIndex,
+      bombId: bomb.id,
+      stuckTime: 0,
+      maxStuckTime: 180, // 3 seconds at 60fps
+      originalVelocity
+    });
+    
+    // Award score for sticking enemy
+    gameState.score += 100;
+    
+    console.log(`🧲 Enemy stuck to magnetic bomb for 3 seconds! Score: +100`);
   }
 
-  // FIXED: Get magnetic force ONLY for magnetic bombs (not activated ones)
+  // FIXED: Get magnetic force ONLY for magnetic bombs, but not for stuck enemies
   getMagneticForce(enemyX: number, enemyY: number, gameState: GameState): {fx: number, fy: number} {
     let totalFx = 0;
     let totalFy = 0;
+
+    // Find enemy index to check if it's stuck
+    const enemyIndex = gameState.enemies.findIndex(e => e.x === enemyX && e.y === enemyY);
+    const isStuck = this.stuckEnemies.find(se => se.enemyIndex === enemyIndex);
+    
+    // Don't apply magnetic force to stuck enemies
+    if (isStuck) return { fx: 0, fy: 0 };
 
     // ONLY attract to bombs in 'magnetic' state (not 'activated')
     const magneticBombs = gameState.surprises.filter(s => s.state === 'magnetic');
@@ -241,5 +308,6 @@ export class SurpriseManager {
   clearAllSurprises(gameState: GameState) {
     gameState.surprises = [];
     this.surpriseIdCounter = 0;
+    this.stuckEnemies = [];
   }
 }
