@@ -81,6 +81,86 @@ const XonixGame: React.FC = () => {
     return { width: canvasWidth, height: canvasHeight };
   }, []);
 
+  // Initialize and update game logic/renderer when dimensions change
+  useEffect(() => {
+    const dimensions = calculateCanvasSize();
+    setCanvasDimensions(dimensions);
+    
+    gameLogic.current = new GameLogic(GRID_SIZE, dimensions.width, dimensions.height);
+    renderer.current = new GameRenderer(GRID_SIZE, dimensions.width, dimensions.height);
+    
+    // Reset game state with new dimensions
+    const centerX = Math.floor(dimensions.width / 2);
+    const centerY = Math.floor(dimensions.height / 2);
+    
+    setGameState(prev => ({
+      ...prev,
+      player: { x: 0, y: 0, vx: 0, vy: 0 },
+      enemies: [
+        { x: centerX, y: centerY, vx: 1, vy: 0.8 }
+      ],
+      trail: [],
+      filledCells: new Set(),
+      score: 0,
+      areaFilled: 0,
+      isAlive: true,
+      level: 1,
+      enemyCount: 1,
+      isLevelTransition: false
+    }));
+  }, [calculateCanvasSize]);
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      const dimensions = calculateCanvasSize();
+      if (dimensions.width !== canvasDimensions.width || dimensions.height !== canvasDimensions.height) {
+        setCanvasDimensions(dimensions);
+        
+        if (gameLogic.current && renderer.current) {
+          gameLogic.current = new GameLogic(GRID_SIZE, dimensions.width, dimensions.height);
+          renderer.current = new GameRenderer(GRID_SIZE, dimensions.width, dimensions.height);
+        }
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [calculateCanvasSize, canvasDimensions]);
+
+  // Render game to canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !renderer.current) return;
+
+    // Set canvas dimensions
+    canvas.width = canvasDimensions.width;
+    canvas.height = canvasDimensions.height;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Render the game
+    renderer.current.render(ctx, gameState);
+  }, [gameState, canvasDimensions]);
+
+  const updateGame = useCallback(() => {
+    if (!gameState.isAlive || !gameLogic.current) return;
+
+    setGameState(prev => {
+      const newState = gameLogic.current!.updateGame(prev);
+      
+      // Check for game over and high score
+      if (prev.isAlive && !newState.isAlive) {
+        if (HighScoreManager.isHighScore(newState.score)) {
+          setTimeout(() => setShowHighScoreEntry(true), 1000);
+        }
+      }
+      
+      return newState;
+    });
+  }, [gameState.isAlive]);
+
   // Create bouncing enemies for game over screen
   const createGameOverEnemies = useCallback(() => {
     const enemies: GameOverEnemy[] = [];
@@ -177,70 +257,6 @@ const XonixGame: React.FC = () => {
       setGameOverEnemies(createGameOverEnemies());
     }
   }, [gameState.isAlive, gameOverEnemies.length, createGameOverEnemies]);
-
-  // Initialize and update game logic/renderer when dimensions change
-  useEffect(() => {
-    const dimensions = calculateCanvasSize();
-    setCanvasDimensions(dimensions);
-    
-    gameLogic.current = new GameLogic(GRID_SIZE, dimensions.width, dimensions.height);
-    renderer.current = new GameRenderer(GRID_SIZE, dimensions.width, dimensions.height);
-    
-    // Reset game state with new dimensions
-    const centerX = Math.floor(dimensions.width / 2);
-    const centerY = Math.floor(dimensions.height / 2);
-    
-    setGameState(prev => ({
-      ...prev,
-      player: { x: 0, y: 0, vx: 0, vy: 0 },
-      enemies: [
-        { x: centerX, y: centerY, vx: 1, vy: 0.8 }
-      ],
-      trail: [],
-      filledCells: new Set(),
-      score: 0,
-      areaFilled: 0,
-      isAlive: true,
-      level: 1,
-      enemyCount: 1,
-      isLevelTransition: false
-    }));
-  }, [calculateCanvasSize]);
-
-  // Handle window resize
-  useEffect(() => {
-    const handleResize = () => {
-      const dimensions = calculateCanvasSize();
-      if (dimensions.width !== canvasDimensions.width || dimensions.height !== canvasDimensions.height) {
-        setCanvasDimensions(dimensions);
-        
-        if (gameLogic.current && renderer.current) {
-          gameLogic.current = new GameLogic(GRID_SIZE, dimensions.width, dimensions.height);
-          renderer.current = new GameRenderer(GRID_SIZE, dimensions.width, dimensions.height);
-        }
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [calculateCanvasSize, canvasDimensions]);
-
-  const updateGame = useCallback(() => {
-    if (!gameState.isAlive || !gameLogic.current) return;
-
-    setGameState(prev => {
-      const newState = gameLogic.current!.updateGame(prev);
-      
-      // Check for game over and high score
-      if (prev.isAlive && !newState.isAlive) {
-        if (HighScoreManager.isHighScore(newState.score)) {
-          setTimeout(() => setShowHighScoreEntry(true), 1000);
-        }
-      }
-      
-      return newState;
-    });
-  }, [gameState.isAlive]);
 
   const handleHighScoreSubmit = (name: string) => {
     HighScoreManager.addHighScore(name, gameState.score);
