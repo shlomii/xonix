@@ -13,7 +13,8 @@ export class GameLogic {
   private collisionDetector: CollisionDetector;
   private levelManager: LevelManager;
   private gridSize: number;
-  private levelTransitionTimer: number | null = null;
+  private transitionFrameCounter: number = 0;
+  private readonly TRANSITION_DURATION_FRAMES = 90; // 1.5 seconds at 60fps
 
   constructor(gridSize: number, canvasWidth: number, canvasHeight: number) {
     this.gridSize = gridSize;
@@ -27,23 +28,19 @@ export class GameLogic {
   updateGame(gameState: GameState): GameState {
     const newState = { ...gameState };
 
-    // Handle level transition state
+    // Handle level transition state with frame-based counter
     if (newState.isLevelTransition) {
-      // Only set the timer once
-      if (this.levelTransitionTimer === null) {
-        this.levelTransitionTimer = window.setTimeout(() => {
-          this.levelManager.completeLevelTransition(newState);
-          this.levelTransitionTimer = null;
-        }, 1500); // 1.5 second transition
+      this.transitionFrameCounter++;
+      
+      if (this.transitionFrameCounter >= this.TRANSITION_DURATION_FRAMES) {
+        this.levelManager.completeLevelTransition(newState);
+        this.transitionFrameCounter = 0;
       }
       return newState;
     }
 
-    // Clear any existing timer if we're not in transition
-    if (this.levelTransitionTimer !== null) {
-      clearTimeout(this.levelTransitionTimer);
-      this.levelTransitionTimer = null;
-    }
+    // Reset transition counter when not in transition
+    this.transitionFrameCounter = 0;
 
     // Always ensure border is initialized - this handles both first run and restarts
     if (newState.filledCells.size === 0) {

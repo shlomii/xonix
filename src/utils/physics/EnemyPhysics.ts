@@ -7,17 +7,17 @@ export class EnemyPhysics {
   private accelerationTimers: Map<number, number> = new Map();
   private baseVelocities: Map<number, {vx: number, vy: number}> = new Map();
 
-  // Improved physics constants for better gameplay
-  private readonly BASE_SPEED = 0.6; // Increased from 0.3
-  private readonly MAX_SPEED = 3.0; // Increased from 1.8
-  private readonly MIN_SPEED = 0.15;
+  // Enhanced physics constants for smoother and faster gameplay
+  private readonly BASE_SPEED = 0.8; // Increased from 0.6
+  private readonly MAX_SPEED = 4.0; // Increased from 3.0
+  private readonly MIN_SPEED = 0.2;
   private readonly PLAYER_ATTRACTION_STRENGTH = 0.08;
   private readonly EXPLORATION_FORCE = 0.08;
-  private readonly WALL_BOUNCE_DAMPING = 0.9;
-  private readonly FILLED_BOUNCE_BOOST = 2.5; // Increased from 1.8
-  private readonly ENEMY_COLLISION_BOOST = 2.0; // Increased from 1.6
-  private readonly FRICTION = 0.97; // Adjusted for better balance
-  private readonly ACCELERATION_BOOST = 1.5; // Increased from 1.4
+  private readonly WALL_BOUNCE_DAMPING = 0.95; // Increased from 0.9
+  private readonly FILLED_BOUNCE_BOOST = 2.8; // Increased from 2.5
+  private readonly ENEMY_COLLISION_BOOST = 2.2; // Increased from 2.0
+  private readonly FRICTION = 0.98; // Increased from 0.97 for smoother movement
+  private readonly ACCELERATION_BOOST = 1.6; // Increased from 1.5
   private readonly SEEK_DISTANCE_THRESHOLD = 150;
   private readonly ACCELERATION_DECAY_TIME = 2000;
   private readonly ENEMY_COLLISION_RADIUS = 20;
@@ -37,15 +37,15 @@ export class EnemyPhysics {
       // Initialize base velocity for new enemies
       if (!this.baseVelocities.has(index)) {
         const angle = Math.random() * Math.PI * 2;
-        const levelSpeedMultiplier = 1 + (gameState.level - 1) * 0.1; // Increase speed with level
+        const levelSpeedMultiplier = 1 + (gameState.level - 1) * 0.15; // Increased multiplier
         this.baseVelocities.set(index, {
           vx: Math.cos(angle) * this.BASE_SPEED * levelSpeedMultiplier,
           vy: Math.sin(angle) * this.BASE_SPEED * levelSpeedMultiplier
         });
       }
 
-      // Apply deceleration from friction
-      this.applyDeceleration(enemy, index, currentTime);
+      // Apply smoother deceleration
+      this.applySmoothDeceleration(enemy, index, currentTime);
 
       // Check for enemy-to-enemy collisions
       this.checkEnemyCollisions(enemy, index, gameState.enemies, currentTime);
@@ -79,20 +79,20 @@ export class EnemyPhysics {
     });
   }
 
-  private applyDeceleration(enemy: { vx: number; vy: number }, index: number, currentTime: number) {
-    // Apply basic friction
+  private applySmoothDeceleration(enemy: { vx: number; vy: number }, index: number, currentTime: number) {
+    // Apply smoother friction
     enemy.vx *= this.FRICTION;
     enemy.vy *= this.FRICTION;
 
-    // Apply acceleration decay if time has passed since last acceleration
+    // Apply acceleration decay with smoother transition
     const lastAcceleration = this.accelerationTimers.get(index);
     if (lastAcceleration) {
       const timeSinceAcceleration = currentTime - lastAcceleration;
       if (timeSinceAcceleration > this.ACCELERATION_DECAY_TIME) {
-        // Gradually return to base speed
+        // Gradually return to base speed with smoother interpolation
         const baseVel = this.baseVelocities.get(index);
         if (baseVel) {
-          const decayFactor = 0.98; // Gradual decay
+          const decayFactor = 0.985; // Smoother decay
           enemy.vx = enemy.vx * decayFactor + baseVel.vx * (1 - decayFactor);
           enemy.vy = enemy.vy * decayFactor + baseVel.vy * (1 - decayFactor);
         }
