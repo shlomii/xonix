@@ -25,7 +25,7 @@ export class SurpriseManager {
           type: 'timeBomb',
           state: 'inactive',
           timer: 0,
-          maxTimer: 600, // Increased from 300 to 600 frames (10 seconds at 60fps)
+          maxTimer: 600, // 10 seconds at 60fps
           x: position.x,
           y: position.y
         };
@@ -136,7 +136,7 @@ export class SurpriseManager {
     if (surprise.type === 'timeBomb') {
       surprise.state = 'activated';
       surprise.timer = 0;
-      // Transition to magnetic after a brief delay (reduced from 500ms to 200ms)
+      // Transition to magnetic after a brief delay (200ms)
       setTimeout(() => {
         if (surprise.state === 'activated') {
           surprise.state = 'magnetic';
@@ -185,20 +185,22 @@ export class SurpriseManager {
     // Mark bomb as exploded
     bomb.state = 'exploded';
     
-    // Award score
-    gameState.score += 200 * gameState.level; // Higher score for higher levels
+    // Award BIG score bonus - increased significantly
+    const scoreBonus = 500 * gameState.level; // Increased from 200 to 500
+    gameState.score += scoreBonus;
     
     // Play explosion sound
     audioManager.playBombExplosion();
     
-    console.log(`💥 BOOM! Enemy eliminated by time-bomb! Score: +${200 * gameState.level}`);
+    console.log(`💥 BOOM! Enemy eliminated by time-bomb! Score: +${scoreBonus}`);
   }
 
-  // Get magnetic force for enemies (used by EnemyPhysics) - ENHANCED
+  // FIXED: Get magnetic force ONLY for magnetic bombs (not activated ones)
   getMagneticForce(enemyX: number, enemyY: number, gameState: GameState): {fx: number, fy: number} {
     let totalFx = 0;
     let totalFy = 0;
 
+    // ONLY attract to bombs in 'magnetic' state (not 'activated')
     const magneticBombs = gameState.surprises.filter(s => s.state === 'magnetic');
     
     magneticBombs.forEach(bomb => {
@@ -211,9 +213,9 @@ export class SurpriseManager {
       const dy = bombCenterY - enemyCenterY;
       const distance = Math.sqrt(dx * dx + dy * dy);
       
-      if (distance > 0 && distance < this.gridSize * 12) { // Increased range from 8 to 12
-        const magneticStrength = 1.2; // Increased from 0.3 to 1.2
-        const force = magneticStrength / Math.max(distance * 0.005, 1); // Better force calculation
+      if (distance > 0 && distance < this.gridSize * 12) {
+        const magneticStrength = 1.2;
+        const force = magneticStrength / Math.max(distance * 0.005, 1);
         
         totalFx += (dx / distance) * force;
         totalFy += (dy / distance) * force;
