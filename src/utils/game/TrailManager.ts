@@ -92,97 +92,114 @@ export class TrailManager {
       trailSet.add(`${gridX},${gridY}`);
     });
 
-    // Add current player position to trail set for completion
+    // Add current player position to trail set for proper boundary closure
     const playerGridX = Math.floor(gameState.player.x / this.gridSize);
     const playerGridY = Math.floor(gameState.player.y / this.gridSize);
     trailSet.add(`${playerGridX},${playerGridY}`);
 
-    console.log('Trail set:', Array.from(trailSet));
+    console.log('Trail set before boundary formation:', Array.from(trailSet));
+    console.log('Filled cells before trail completion:', gameState.filledCells.size);
 
-    // IMPROVED: Fill trail cells immediately to create proper boundary
+    // CRITICAL FIX: Add trail cells to filled cells BEFORE flood fill
+    // This ensures the trail forms a proper boundary
+    const originalFilledSize = gameState.filledCells.size;
     trailSet.forEach(cell => {
       gameState.filledCells.add(cell);
     });
 
-    // Create boundary set that includes existing filled cells and the new trail
+    console.log(`Added ${gameState.filledCells.size - originalFilledSize} trail cells to boundary`);
+
+    // Create a comprehensive boundary set for flood fill
+    // This includes ALL filled cells (border + previously filled areas + new trail)
     const boundarySet = new Set<string>();
-    
-    // Add ALL filled cells to boundary (this includes the border + trail)
     gameState.filledCells.forEach(cell => boundarySet.add(cell));
 
-    console.log('Boundary set size:', boundarySet.size);
-    console.log('Filled cells before flood fill:', gameState.filledCells.size);
+    console.log('Final boundary set size:', boundarySet.size);
 
-    // Find all empty areas using flood fill
+    // Enhanced flood fill: Check ALL empty cells to find disconnected areas
     const visited = new Set<string>();
     const areas: Set<string>[] = [];
 
-    // Check ALL cells in the grid to find empty areas
-    for (let x = 0; x < gridWidth; x++) {
-      for (let y = 0; y < gridHeight; y++) {
+    // Systematically scan the entire grid for empty areas
+    for (let y = 1; y < gridHeight - 1; y++) { // Skip border cells
+      for (let x = 1; x < gridWidth - 1; x++) {
         const key = `${x},${y}`;
-        if (!visited.has(key) && !boundarySet.has(key)) {
-          const area = this.floodFill.floodFill(x, y, gridWidth, gridHeight, boundarySet, new Set(), visited);
-          if (area.size > 0) {
-            areas.push(area);
-            console.log(`Found area at (${x},${y}) with size:`, area.size);
-          }
+        
+        // Skip if already visited or part of boundary
+        if (visited.has(key) || boundarySet.has(key)) {
+          continue;
+        }
+
+        // Found an unvisited empty cell - start flood fill
+        const area = this.floodFill.floodFill(x, y, gridWidth, gridHeight, boundarySet, new Set(), visited);
+        
+        if (area.size > 0) {
+          areas.push(area);
+          console.log(`Found disconnected area starting at (${x},${y}) with ${area.size} cells`);
+          
+          // Debug: Log a few cells from this area
+          const areaCells = Array.from(area).slice(0, 5);
+          console.log('Area sample cells:', areaCells);
         }
       }
     }
 
-    console.log('Total areas found:', areas.length);
+    console.log(`Total disconnected areas found: ${areas.length}`);
 
-    // Determine which areas to fill based on enemy positions
+    // Fill areas that don't contain enemies
     let totalNewlyFilledCells = 0;
-    let largestAreaSize = 0;
+    let largestFilledArea = 0;
     
-    // Check each area to see if it contains enemies
     areas.forEach((area, index) => {
+      // Check if this area contains any enemies
       const hasEnemy = gameState.enemies.some(enemy => {
         const enemyGridX = Math.floor(enemy.x / this.gridSize);
         const enemyGridY = Math.floor(enemy.y / this.gridSize);
-        return area.has(`${enemyGridX},${enemyGridY}`);
+        const enemyKey = `${enemyGridX},${enemyGridY}`;
+        return area.has(enemyKey);
       });
 
-      console.log(`Area ${index} has enemy:`, hasEnemy, 'size:', area.size);
+      console.log(`Area ${index}: size=${area.size}, hasEnemy=${hasEnemy}`);
 
-      // Fill areas that don't contain enemies
+      // Fill enemy-free areas
       if (!hasEnemy) {
-        largestAreaSize = Math.max(largestAreaSize, area.size);
+        let newCellsInThisArea = 0;
+        largestFilledArea = Math.max(largestFilledArea, area.size);
+        
         area.forEach(cell => {
           if (!gameState.filledCells.has(cell)) {
             gameState.filledCells.add(cell);
+            newCellsInThisArea++;
             totalNewlyFilledCells++;
           }
         });
+        
+        console.log(`Filled area ${index} with ${newCellsInThisArea} new cells`);
       }
     });
 
-    console.log('Newly filled cells:', totalNewlyFilledCells);
-    console.log('Largest area size:', largestAreaSize);
-    console.log('Total filled cells after:', gameState.filledCells.size);
+    console.log(`=== COMPLETION SUMMARY ===`);
+    console.log(`Trail cells added: ${trailSet.size}`);
+    console.log(`New area cells filled: ${totalNewlyFilledCells}`);
+    console.log(`Largest filled area: ${largestFilledArea}`);
+    console.log(`Total filled cells: ${gameState.filledCells.size}`);
 
-    // Exponential scoring system - rewards large areas exponentially
+    // Scoring system with exponential rewards
     if (totalNewlyFilledCells > 0) {
-      // Base score per cell
       const baseScore = 10;
-      
-      // Exponential bonus based on area size - larger areas get exponentially more points
       const exponentialBonus = Math.pow(totalNewlyFilledCells, 1.5) * 5;
-      
-      // Additional bonus for very large areas (50+ cells)
       const largeSizeBonus = totalNewlyFilledCells >= 50 ? totalNewlyFilledCells * 20 : 0;
-      
       const totalScore = Math.floor(baseScore * totalNewlyFilledCells + exponentialBonus + largeSizeBonus);
       
-      console.log(`Scoring: ${totalNewlyFilledCells} cells = ${baseScore * totalNewlyFilledCells} base + ${Math.floor(exponentialBonus)} exponential + ${largeSizeBonus} large bonus = ${totalScore} total`);
+      console.log(`Score calculation: ${totalNewlyFilledCells} cells = ${baseScore * totalNewlyFilledCells} base + ${Math.floor(exponentialBonus)} exponential + ${largeSizeBonus} large bonus = ${totalScore} total`);
       
       gameState.score += totalScore;
     }
 
-    // Update area filled percentage
+    // Update completion percentage
     const totalCells = gridWidth * gridHeight;
     gameState.areaFilled = (gameState.filledCells.size / totalCells) * 100;
+    
+    console.log(`Area filled: ${gameState.areaFilled.toFixed(1)}%`);
   }
 }
