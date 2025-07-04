@@ -1,4 +1,3 @@
-
 export interface Position {
   x: number;
   y: number;
@@ -32,6 +31,9 @@ export interface GameState {
   enemyCount: number;
   isLevelTransition: boolean;
   surprises: Surprise[];
+  lives: number;
+  maxLives: number;
+  lastLifeScore: number; // Track when last life was awarded
 }
 
 export interface GameConfig {

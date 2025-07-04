@@ -51,7 +51,10 @@ const XonixGame: React.FC = () => {
     level: 1,
     enemyCount: 1,
     isLevelTransition: false,
-    surprises: []
+    surprises: [],
+    lives: 2,
+    maxLives: 9,
+    lastLifeScore: 0
   });
 
   const gameLogic = useRef<GameLogic>();
@@ -110,7 +113,10 @@ const XonixGame: React.FC = () => {
       level: 1,
       enemyCount: 1,
       isLevelTransition: false,
-      surprises: []
+      surprises: [],
+      lives: 2,
+      maxLives: 9,
+      lastLifeScore: 0
     }));
 
     // Simulate loading for smooth experience
@@ -377,7 +383,10 @@ const XonixGame: React.FC = () => {
       level: 1,
       enemyCount: 1,
       isLevelTransition: false,
-      surprises: []
+      surprises: [],
+      lives: 2,
+      maxLives: 9,
+      lastLifeScore: 0
     });
     
     setShowHighScoreEntry(false);
@@ -566,8 +575,8 @@ const XonixGame: React.FC = () => {
           )}
         </div>
 
-        {/* Enhanced Stats Display */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {/* Enhanced Stats Display with Lives */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           <div className="bg-gradient-to-br from-purple-600/50 to-purple-700/50 backdrop-blur-sm rounded-xl px-4 py-3 border border-purple-400/30 transition-all hover:scale-105">
             <div className="text-sm text-purple-200 font-medium">Score</div>
             <div className="text-2xl font-bold text-white">{gameState.score.toLocaleString()}</div>
@@ -583,6 +592,18 @@ const XonixGame: React.FC = () => {
           <div className="bg-gradient-to-br from-red-600/50 to-red-700/50 backdrop-blur-sm rounded-xl px-4 py-3 border border-red-400/30 transition-all hover:scale-105">
             <div className="text-sm text-red-200 font-medium">Enemies</div>
             <div className="text-2xl font-bold text-white">{gameState.enemyCount}</div>
+          </div>
+          <div className="bg-gradient-to-br from-yellow-600/50 to-yellow-700/50 backdrop-blur-sm rounded-xl px-4 py-3 border border-yellow-400/30 transition-all hover:scale-105">
+            <div className="text-sm text-yellow-200 font-medium">Lives</div>
+            <div className="text-2xl font-bold text-white flex items-center space-x-1">
+              <span>{gameState.lives}</span>
+              <div className="flex space-x-1">
+                {Array.from({ length: Math.min(gameState.lives, 5) }, (_, i) => (
+                  <div key={i} className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+                ))}
+                {gameState.lives > 5 && <span className="text-xs">+{gameState.lives - 5}</span>}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -617,7 +638,8 @@ const XonixGame: React.FC = () => {
           
           <div className="text-sm text-gray-400 max-w-2xl mx-auto">
             <p className="mb-2">🎯 <strong>Objective:</strong> Fill areas by completing closed shapes while avoiding red enemies</p>
-            <p>💎 <strong>Goal:</strong> Fill 80% of the area to advance to the next level!</p>
+            <p className="mb-2">💎 <strong>Goal:</strong> Fill 80% of the area to advance to the next level!</p>
+            <p>❤️ <strong>Lives:</strong> Start with 2 lives, earn extra lives every 150,000 points!</p>
           </div>
         </div>
       </div>
@@ -662,6 +684,16 @@ const XonixGame: React.FC = () => {
                   <li>• <strong>Complete Areas:</strong> Return to safe zone to fill enclosed areas</li>
                   <li>• <strong>Avoid Enemies:</strong> Red enemies will end your game if they touch you or your trail</li>
                   <li>• <strong>Bombs:</strong> Collect orange bombs to temporarily stick enemies</li>
+                </ul>
+              </div>
+
+              <div className="bg-red-900/30 rounded-lg p-4 border border-red-500/30">
+                <h3 className="text-xl font-semibold text-red-400 mb-3">❤️ Lives System</h3>
+                <ul className="space-y-2 text-gray-300">
+                  <li>• <strong>Starting Lives:</strong> Begin with 2 lives</li>
+                  <li>• <strong>Extra Lives:</strong> Earn a new life every 150,000 points</li>
+                  <li>• <strong>Life Lost:</strong> When hit by enemy, lose a life and respawn safely</li>
+                  <li>• <strong>Game Over:</strong> When all lives are lost</li>
                 </ul>
               </div>
               

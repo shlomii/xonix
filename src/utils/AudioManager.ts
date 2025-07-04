@@ -1,4 +1,3 @@
-
 export class AudioManager {
   private audioContext: AudioContext | null = null;
   private sounds: Map<string, AudioBuffer> = new Map();
@@ -291,6 +290,87 @@ export class AudioManager {
       osc.start(startTime);
       osc.stop(startTime + 0.3);
     });
+  }
+
+  // Extra life sound - celebratory and rewarding
+  playExtraLife() {
+    if (!this.isEnabled || !this.audioContext) return;
+
+    const ctx = this.audioContext;
+    const now = ctx.currentTime;
+    
+    // Celebratory ascending arpeggio
+    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6 major chord
+    notes.forEach((freq, index) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const startTime = now + (index * 0.08);
+      
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0.2 * this.volume, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
+      
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + 0.4);
+    });
+
+    // Add sparkle effect
+    setTimeout(() => {
+      const sparkleOsc = ctx.createOscillator();
+      const sparkleGain = ctx.createGain();
+      const sparkleTime = ctx.currentTime;
+      
+      sparkleOsc.type = 'sine';
+      sparkleOsc.frequency.setValueAtTime(2093, sparkleTime); // C7
+      sparkleOsc.frequency.exponentialRampToValueAtTime(4186, sparkleTime + 0.2); // C8
+      sparkleGain.gain.setValueAtTime(0.1 * this.volume, sparkleTime);
+      sparkleGain.gain.exponentialRampToValueAtTime(0.001, sparkleTime + 0.3);
+      
+      sparkleOsc.connect(sparkleGain).connect(ctx.destination);
+      sparkleOsc.start(sparkleTime);
+      sparkleOsc.stop(sparkleTime + 0.3);
+    }, 200);
+  }
+
+  // Life lost sound - dramatic but not game over
+  playLifeLost() {
+    if (!this.isEnabled || !this.audioContext) return;
+
+    const ctx = this.audioContext;
+    const now = ctx.currentTime;
+    
+    // Dramatic descending sound but with hope
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(330, now); // E4
+    osc.frequency.exponentialRampToValueAtTime(220, now + 0.5); // A3
+    osc.frequency.exponentialRampToValueAtTime(165, now + 1.0); // E3
+    gain.gain.setValueAtTime(0.15 * this.volume, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+    
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 1.2);
+
+    // Add a subtle recovery tone
+    setTimeout(() => {
+      const recoveryOsc = ctx.createOscillator();
+      const recoveryGain = ctx.createGain();
+      const recoveryTime = ctx.currentTime;
+      
+      recoveryOsc.type = 'sine';
+      recoveryOsc.frequency.setValueAtTime(220, recoveryTime);
+      recoveryGain.gain.setValueAtTime(0.08 * this.volume, recoveryTime);
+      recoveryGain.gain.exponentialRampToValueAtTime(0.001, recoveryTime + 0.3);
+      
+      recoveryOsc.connect(recoveryGain).connect(ctx.destination);
+      recoveryOsc.start(recoveryTime);
+      recoveryOsc.stop(recoveryTime + 0.3);
+    }, 800);
   }
 
   // Game over sound
