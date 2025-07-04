@@ -3,22 +3,85 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>xonix-pixel-flow</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
+    <title>XONIX - Classic Arcade Game</title>
+    <meta name="description" content="Play the classic XONIX arcade game! Fill areas while avoiding enemies in this modern web remake of the retro puzzle game." />
+    <meta name="author" content="XONIX Game Studio" />
+    <meta name="keywords" content="xonix, arcade game, puzzle game, retro game, web game, browser game" />
 
-    <meta property="og:title" content="xonix-pixel-flow" />
-    <meta property="og:description" content="Lovable Generated Project" />
+    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta property="og:title" content="XONIX - Classic Arcade Game" />
+    <meta property="og:description" content="Play the classic XONIX arcade game! Fill areas while avoiding enemies in this modern web remake." />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&h=630&fit=crop" />
+    <meta property="og:url" content="https://your-domain.com" />
 
+    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@lovable_dev" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta name="twitter:title" content="XONIX - Classic Arcade Game" />
+    <meta name="twitter:description" content="Play the classic XONIX arcade game! Fill areas while avoiding enemies in this modern web remake." />
+    <meta name="twitter:image" content="https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&h=630&fit=crop" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico" />
+
+    <!-- Performance optimizations -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+
+    <!-- PWA support -->
+    <meta name="theme-color" content="#8B5CF6" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <style>
+      /* Critical CSS for loading screen */
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        background: linear-gradient(135deg, #7c3aed, #6366f1, #3b82f6);
+        overflow-x: hidden;
+      }
+      
+      /* Prevent FOUC */
+      #root {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* Loading animation */
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-top: 4px solid white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      /* Optimize canvas rendering */
+      canvas {
+        image-rendering: -moz-crisp-edges;
+        image-rendering: -webkit-crisp-edges;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+    </style>
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="loading-spinner"></div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
