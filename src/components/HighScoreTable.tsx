@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { HighScore } from '../utils/HighScoreManager';
 
@@ -42,7 +41,7 @@ const HighScoreTable: React.FC<HighScoreTableProps> = ({ scores, currentScore })
       </div>
       
       <div className="text-center mt-6 text-xs text-green-300">
-        PRESS ESC TO CONTINUE
+        PRESS ANY KEY TO CONTINUE
       </div>
     </div>
   );

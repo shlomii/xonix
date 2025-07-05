@@ -293,10 +293,15 @@ const XonixGame: React.FC = () => {
       return;
     }
     
+    // UPDATED: Handle ANY key to close high score table (not just Escape)
+    if (showHighScoreTable) {
+      e.preventDefault();
+      setShowHighScoreTable(false);
+      return;
+    }
+    
     if (e.key === 'Escape') {
-      if (showHighScoreTable) {
-        setShowHighScoreTable(false);
-      } else if (showInstructions) {
+      if (showInstructions) {
         setShowInstructions(false);
       }
     } else if (e.key.toLowerCase() === 'h' && gameState.isAlive) {
