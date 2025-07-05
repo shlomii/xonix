@@ -34,7 +34,7 @@ export class GameRenderer {
     // Draw filled areas with enhanced visuals
     this.drawFilledAreas(ctx, gameState.filledCells);
 
-    // Draw trail with improved chalk effect
+    // Draw trail with improved chalk effect - FIXED: Now uses actual player position
     this.drawTrail(ctx, gameState.trail, gameState.player, gameState.filledCells);
 
     // Draw surprises (bombs) with enhanced effects
@@ -373,13 +373,12 @@ export class GameRenderer {
     const gridWidth = Math.floor(this.canvasWidth / this.gridSize);
     const gridHeight = Math.floor(this.canvasHeight / this.gridSize);
 
-    // Draw enhanced trail effect
+    // FIXED: Draw trail using actual positions, not grid-aligned positions
     trail.forEach((pos, index) => {
-      const gridX = Math.floor(pos.x / this.gridSize);
-      const gridY = Math.floor(pos.y / this.gridSize);
       const age = (trail.length - index) / trail.length; // Newer trail segments are brighter
       
-      this.drawEnhancedChalkCell(ctx, gridX * this.gridSize, gridY * this.gridSize, age);
+      // Use the actual position stored in the trail
+      this.drawEnhancedChalkCell(ctx, pos.x, pos.y, age);
     });
 
     // Highlight current player position if on trail
@@ -390,30 +389,37 @@ export class GameRenderer {
     const isPlayerOnFilled = filledCells.has(`${playerGridX},${playerGridY}`);
     
     if (!isPlayerOnBorder && !isPlayerOnFilled) {
+      // FIXED: Draw player trail at actual player position
       this.drawEnhancedChalkCell(ctx, player.x, player.y, 1.0);
     }
   }
 
   private drawEnhancedChalkCell(ctx: CanvasRenderingContext2D, x: number, y: number, intensity: number = 1.0) {
+    // FIXED: Draw chalk effect at the exact position, not grid-aligned
+    // The chalk effect should be centered on the player's actual position
+    const chalkSize = this.gridSize * 0.8; // Slightly smaller than grid for better visual
+    const chalkX = x + (this.gridSize - chalkSize) / 2;
+    const chalkY = y + (this.gridSize - chalkSize) / 2;
+    
     // Enhanced chalk effect with better texture and glow
     const baseAlpha = 0.8 + intensity * 0.2;
     
     // Base chalk color with gradient
-    const gradient = ctx.createLinearGradient(x, y, x + this.gridSize, y + this.gridSize);
+    const gradient = ctx.createLinearGradient(chalkX, chalkY, chalkX + chalkSize, chalkY + chalkSize);
     gradient.addColorStop(0, `rgba(236, 72, 153, ${baseAlpha})`);
     gradient.addColorStop(0.5, `rgba(219, 39, 119, ${baseAlpha * 0.9})`);
     gradient.addColorStop(1, `rgba(190, 24, 93, ${baseAlpha * 0.8})`);
     
     ctx.fillStyle = gradient;
-    ctx.fillRect(x, y, this.gridSize, this.gridSize);
+    ctx.fillRect(chalkX, chalkY, chalkSize, chalkSize);
     
     // Add chalk dust texture with better distribution
     ctx.fillStyle = `rgba(243, 232, 255, ${0.6 * intensity})`;
     const numDustParticles = Math.floor(8 + Math.random() * 6);
     
     for (let i = 0; i < numDustParticles; i++) {
-      const dustX = x + Math.random() * this.gridSize;
-      const dustY = y + Math.random() * this.gridSize;
+      const dustX = chalkX + Math.random() * chalkSize;
+      const dustY = chalkY + Math.random() * chalkSize;
       const dustSize = 0.5 + Math.random() * 1.0;
       const opacity = 0.4 + Math.random() * 0.4;
       
@@ -438,10 +444,10 @@ export class GameRenderer {
       ctx.fillRect(x - this.gridSize * 0.2, y - this.gridSize * 0.2, this.gridSize * 1.4, this.gridSize * 1.4);
     }
     
-    // Enhanced border
+    // Enhanced border - draw around the actual position
     ctx.strokeStyle = `rgba(236, 72, 153, ${0.5 * intensity})`;
     ctx.lineWidth = 1;
-    ctx.strokeRect(x + 0.5, y + 0.5, this.gridSize - 1, this.gridSize - 1);
+    ctx.strokeRect(chalkX + 0.5, chalkY + 0.5, chalkSize - 1, chalkSize - 1);
   }
 
   private drawPlayer(ctx: CanvasRenderingContext2D, player: {x: number, y: number}) {

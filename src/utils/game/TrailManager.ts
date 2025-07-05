@@ -72,10 +72,11 @@ export class TrailManager {
       // Player is in uncharted territory - add slow score increase
       gameState.score += 1; // Small score for exploring
       
-      // Add to trail if not already there
+      // Add to trail if not already there - FIXED: Use actual player position, not grid position
       const currentPosStr = `${gridX},${gridY}`;
       if (!gameState.trail.some(pos => `${Math.floor(pos.x / this.gridSize)},${Math.floor(pos.y / this.gridSize)}` === currentPosStr)) {
-        gameState.trail.push({ x: gridX * this.gridSize, y: gridY * this.gridSize });
+        // CRITICAL FIX: Store the player's ACTUAL position, not grid-aligned position
+        gameState.trail.push({ x: player.x, y: player.y });
         
         // Play subtle trail tick sound
         audioManager.playTrailTick();
@@ -87,7 +88,7 @@ export class TrailManager {
     const gridWidth = Math.floor(this.canvasWidth / this.gridSize);
     const gridHeight = Math.floor(this.canvasHeight / this.gridSize);
     
-    // Create a map of trail positions
+    // Create a map of trail positions - convert actual positions to grid positions for flood fill
     const trailSet = new Set<string>();
     gameState.trail.forEach(pos => {
       const gridX = Math.floor(pos.x / this.gridSize);
