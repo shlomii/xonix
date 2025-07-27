@@ -1,0 +1,21 @@
+{
+  "name": "XONIX - Classic Arcade Game",
+  "short_name": "XONIX",
+  "description": "Play the classic XONIX arcade game! Fill areas while avoiding enemies.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#7c3aed",
+  "theme_color": "#8B5CF6",
+  "orientation": "landscape-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["games", "entertainment"],
+  "lang": "en",
+  "scope": "/",
+  "prefer_related_applications": false
+}

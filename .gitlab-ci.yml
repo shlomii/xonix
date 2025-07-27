@@ -1,0 +1,32 @@
+image: node:20
+
+stages:
+  - build
+  - deploy
+
+cache:
+  key:
+    files:
+      - package.json
+  paths:
+    - node_modules/
+
+build-job:
+  stage: build
+  script:
+    - npm install
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+
+pages:
+  stage: deploy
+  script:
+    - mv dist public
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
